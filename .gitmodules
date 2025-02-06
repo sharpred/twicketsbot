@@ -1,0 +1,3 @@
+[submodule "twickets-get"]
+	path = twickets-get
+	url = git@github.com:mlinzner/twicket-get.git
