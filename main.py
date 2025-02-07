@@ -1,9 +1,8 @@
 """ module for holding and purchasing tickets on twickets """
 
-#from time import sleep
+# from time import sleep
 import os
 import logging
-import json
 import requests
 
 # Configure Charles Proxy
@@ -34,46 +33,52 @@ class TwicketsClient:
         self.prowl_api_key = os.getenv("PROWL_API_KEY")
         self.session = requests.Session()
         self.token = None
-    
+
     def authenticate(self):
         """log in to the Twickets website."""
-        
+
         url = f"{self.BASE_URL}auth/login?api_key=" + self.api_key
         headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
             'content-type': 'application/json'
-            }
+        }
         cookies = {
-            'clientId': 'e0111c5e-ad13-4209-9c08-16e913b5baf5', 
-            'territory': 'GB', 
+            'clientId': 'e0111c5e-ad13-4209-9c08-16e913b5baf5',
+            'territory': 'GB',
             'locale': 'en_GB'}
         data = {
             "login": self.email,
             "password": self.password,
             "accountType": "U",
         }
-        login_data = json.dumps(data)
-        logging.debug("user %s", self.email)
-        logging.debug("pass %s", self.password)
-        response = self.session.post(url=url, proxies=proxies,headers=headers,json=data,cookies=cookies, verify=False)
+        response = self.session.post(
+            url=url,
+            proxies=proxies,
+            headers=headers,
+            json=data,
+            cookies=cookies,
+            verify=False
+        )
         if response.status_code == 200:
             result = response.json()
             logging.debug("Result contents: %s", result)
             if result['responseCode']:
-                logging.debug("Login: response status %s", result['responseCode'])
+                logging.debug("Login: response status %s",
+                              result['responseCode'])
             if result['responseData']:
                 return result['responseData']
             else:
                 logging.error("Login: no results")
                 return None
         else:
-            logging.error("Login: response %s",response.status_code)
+            logging.error("Login: response %s", response.status_code)
             logging.error(str(response))
             return None
 
     def check_env_variables(self):
         """ check required keys all present """
-        missing_keys = [key for key in self.REQUIRED_KEYS if not os.getenv(key)]
+        missing_keys = [
+            key for key in self.REQUIRED_KEYS if not os.getenv(key)]
         if missing_keys:
             for key in missing_keys:
                 print(f"Warning: Missing environment variable {key}")
@@ -112,13 +117,14 @@ class TwicketsClient:
         """ run da ting """
         self.check_env_variables()
         self.authenticate()
-        #while True:
+        # while True:
         #    tickets = self.check_availability()
         #    if tickets:
         #        message = "Tickets available!"
         #        self.send_prowl_notification(message)
         #        print(message)
         #    sleep(60)
+
 
 if __name__ == "__main__":
     client = TwicketsClient()
