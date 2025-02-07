@@ -61,6 +61,32 @@ class TwicketsClient:
         else:
             print("All required keys are populated")
 
+    def validate_auth_response(self,response):
+        """
+        Validate the authentication response from Twickets.
+
+        Args:
+            response (dict): The JSON response from the API.
+
+        Returns:
+            str | None: The responseData if valid, otherwise None.
+        """
+        if not isinstance(response, dict):
+            logging.error("Invalid response format: Expected a dictionary")
+            return None
+
+        required_keys = {"responseData", "responseCode", "description", "clock"}
+    
+        if not required_keys.issubset(response.keys()):
+            logging.error("Missing required keys in response: %s", response)
+            return None
+
+        if response["responseCode"] == 100 and response["description"] == "OK":
+            return response["responseData"]
+
+        logging.error("Unexpected response data: %s", response)
+        return None
+
     def authenticate(self):
         """Log in to the Twickets website."""
 
@@ -80,20 +106,15 @@ class TwicketsClient:
             cookies=cookies,
             verify=False
         )
-
+        response.raise_for_status()
         if response.status_code == 200:
             result = response.json()
             logging.debug("Result contents: %s", result)
-
-            if result.get("responseCode") == 100 and result.get("description") == "OK":
-                return result.get("responseData")
-
-            logging.error("Login failed: unexpected response data")
-            return None
-        else:
-            logging.error("Login: response %s", response.status_code)
-            logging.error(str(response))
-            return None
+            return self.validate_auth_response(result)
+        
+        logging.error("Login: response %s", response.status_code)
+        logging.error(str(response))
+        return None
     
     def aid(self, token):
         """aid is called immediately after authentication on website, so duplicated here"""
@@ -110,7 +131,14 @@ class TwicketsClient:
             verify=False
         )
         response.raise_for_status()
-        return response.json()
+        if response.status_code == 200:
+            result = response.json()
+            logging.debug("aid contents: %s", result)
+            return self.validate_auth_response(result)
+        
+        logging.error("aid: response %s", response.status_code)
+        logging.error(str(response))
+        return None
 
     def check_availability(self):
         """ check ticket availability """
@@ -146,10 +174,17 @@ class TwicketsClient:
 
         if token is not None:
             logging.debug("Authenticated ok %s",token)
-            my_aid = self.aid(token)
-            logging.debug(my_aid)
+            
         else:
             raise RuntimeError("Authentication failed for some reason")
+        aid_token = self.aid(token)
+
+        if aid_token is not None:
+            logging.debug("aid token ok %s",aid_token)
+            
+        else:
+            raise RuntimeError("aid failed for some reason")
+        
         # while True:
         #    tickets = self.check_availability()
         #    if tickets:
