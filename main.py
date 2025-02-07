@@ -35,7 +35,7 @@ class TwicketsClient:
         self.token = None
 
     def authenticate(self):
-        """log in to the Twickets website."""
+        """Log in to the Twickets website."""
 
         url = f"{self.BASE_URL}auth/login?api_key=" + self.api_key
         headers = {
@@ -45,7 +45,8 @@ class TwicketsClient:
         cookies = {
             'clientId': 'e0111c5e-ad13-4209-9c08-16e913b5baf5',
             'territory': 'GB',
-            'locale': 'en_GB'}
+            'locale': 'en_GB'
+        }
         data = {
             "login": self.email,
             "password": self.password,
@@ -59,22 +60,21 @@ class TwicketsClient:
             cookies=cookies,
             verify=False
         )
+
         if response.status_code == 200:
             result = response.json()
             logging.debug("Result contents: %s", result)
-            if result['responseCode']:
-                logging.debug("Login: response status %s",
-                              result['responseCode'])
-            if result['responseData']:
-                return result['responseData']
-            else:
-                logging.error("Login: no results")
-                return None
+
+            if result.get("responseCode") == 100 and result.get("description") == "OK":
+                return result.get("responseData")
+
+            logging.error("Login failed: unexpected response data")
+            return None
         else:
             logging.error("Login: response %s", response.status_code)
             logging.error(str(response))
             return None
-
+    
     def check_env_variables(self):
         """ check required keys all present """
         missing_keys = [
@@ -116,7 +116,12 @@ class TwicketsClient:
     def run(self):
         """ run da ting """
         self.check_env_variables()
-        self.authenticate()
+        token = self.authenticate()
+
+        if token is not None:
+            logging.debug("Authenticated ok %s",token)
+        else:
+            logging.error("Authentication failed for some reason")
         # while True:
         #    tickets = self.check_availability()
         #    if tickets:
