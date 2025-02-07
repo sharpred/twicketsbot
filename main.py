@@ -1,6 +1,6 @@
 """ module for holding and purchasing tickets on twickets """
 
-# from time import sleep
+from time import sleep
 import os
 import logging
 import requests
@@ -27,6 +27,11 @@ cookies = {
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.DEBUG)
 
+class NotTwoHundredStatusError(Exception):
+    """Twickets sometimes throws errors due to cloudflare rate limiting, want to capture this as an exception"""
+    def __init__(self, message):
+        super().__init__(message)
+
 
 class TwicketsClient:
     """Base class for handling Twickets API logic."""
@@ -47,7 +52,7 @@ class TwicketsClient:
         self.password = os.getenv("TWICKETS_PASSWORD")
         self.event_id = os.getenv("TWICKETS_EVENT_ID")
         self.prowl_api_key = os.getenv("PROWL_API_KEY")
-        self.seats = 1
+        self.time_delay = 30
         self.session = requests.Session()
         self.token = None
 
@@ -171,8 +176,7 @@ class TwicketsClient:
             return self.validate_auth_response(result)
         
         logging.error("check_event_availability %s", response.status_code)
-        logging.error(str(response))
-        return None
+        raise NotTwoHundredStatusError(f"check_event_availability status: {response.status_code}")
 
     def run(self):
         """ run da ting """
@@ -189,8 +193,32 @@ class TwicketsClient:
 
             if aid_token is None:
                 raise RuntimeError("aid failed for some reason")
-            
-            self.check_event_availability()
+
+            while 1:
+
+                try:
+                    items = self.check_event_availability()
+                    backoff = 0
+                except NotTwoHundredStatusError:
+                    items = None
+                    if backoff == 0:
+                        backoff = 2
+                    else:
+                        backoff += backoff
+
+                count = len(items)
+
+                if count < 0:
+                    current = items.pop(0)
+                    id = str(current['id']).split('@')[1]
+                    url = f"https://www.twickets.live/app/block/{id},1"
+                    self.send_prowl_notification(f"Check {url}")
+                else:
+                    logging.debug("There are currently %s tickets available", count)   
+
+                sleep(self.time_delay+backoff)
+
+
             
 
 

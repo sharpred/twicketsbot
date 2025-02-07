@@ -185,3 +185,4 @@ pyrightconfig.json
 *.mps
 solution*.txt
 scratchpadnotes.txt
+scratch/*
