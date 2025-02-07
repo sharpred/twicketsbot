@@ -47,6 +47,7 @@ class TwicketsClient:
         self.password = os.getenv("TWICKETS_PASSWORD")
         self.event_id = os.getenv("TWICKETS_EVENT_ID")
         self.prowl_api_key = os.getenv("PROWL_API_KEY")
+        self.seats = 1
         self.session = requests.Session()
         self.token = None
 
@@ -60,6 +61,18 @@ class TwicketsClient:
             raise RuntimeError("Missing required environment variables")
         else:
             print("All required keys are populated")
+
+    def send_prowl_notification(self, message):
+        """ send a prowl notification """
+        prowl_url = "https://api.prowlapp.com/publicapi/add"
+        data = {
+            "apikey": self.prowl_api_key,
+            "application": "TwicketsBot",
+            "event": "Ticket Alert",
+            "description": message,
+        }
+        response = requests.post(prowl_url, data=data, timeout=10)
+        response.raise_for_status()
 
     def validate_auth_response(self,response):
         """
@@ -140,51 +153,50 @@ class TwicketsClient:
         logging.error(str(response))
         return None
 
-    def check_availability(self):
-        """ check ticket availability """
-        url = f"{self.BASE_URL}events/{self.event_id}/tickets"
-        response = self.session.get(url)
+    def check_event_availability(self):
+        url = f"{self.BASE_URL}g2/inventory/listings/" + self.event_id + '?api_key=' + self.api_key
+        avail_headers = headers.copy()
+        avail_headers['Referer'] = f"referer: {self.BASE_URL}/event/{self.event_id}"
+        response = self.session.get(
+            url=url,
+            proxies=proxies,
+            headers=avail_headers,
+            cookies=cookies,
+            verify=False
+        )
         response.raise_for_status()
-        return response.json()
-
-    def purchase_ticket(self, ticket_id):
-        """ purchase a ticket """
-        url = f"{self.BASE_URL}purchases"
-        data = {"ticketId": ticket_id}
-        response = self.session.post(url, json=data)
-        response.raise_for_status()
-        return response.json()
-
-    def send_prowl_notification(self, message):
-        """ send a prowl notification """
-        prowl_url = "https://api.prowlapp.com/publicapi/add"
-        data = {
-            "apikey": self.prowl_api_key,
-            "application": "TwicketsBot",
-            "event": "Ticket Alert",
-            "description": message,
-        }
-        response = requests.post(prowl_url, data=data, timeout=10)
-        response.raise_for_status()
+        if response.status_code == 200:
+            result = response.json()
+            logging.debug("check_event_availability: %s", result)
+            return self.validate_auth_response(result)
+        
+        logging.error("check_event_availability %s", response.status_code)
+        logging.error(str(response))
+        return None
 
     def run(self):
         """ run da ting """
-        self.check_env_variables()
-        token = self.authenticate()
+        try:
 
-        if token is not None:
-            logging.debug("Authenticated ok %s",token)
-            
-        else:
-            raise RuntimeError("Authentication failed for some reason")
-        aid_token = self.aid(token)
-
-        if aid_token is not None:
-            logging.debug("aid token ok %s",aid_token)
-            
-        else:
-            raise RuntimeError("aid failed for some reason")
+            self.check_env_variables()
         
+            token = self.authenticate()
+
+            if token is None:
+                raise RuntimeError("Authentication failed for some reason")
+            
+            aid_token = self.aid(token)
+
+            if aid_token is None:
+                raise RuntimeError("aid failed for some reason")
+            
+            self.check_event_availability()
+            
+
+
+        except Exception as e:
+            #self.send_prowl_notification(e)
+            logging.error(e)
         # while True:
         #    tickets = self.check_availability()
         #    if tickets:
