@@ -13,6 +13,17 @@ proxies = {
     "https": PROXY_SERVER,  # Enable HTTPS proxying
 }
 
+headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
+            'content-type': 'application/json'
+}
+
+cookies = {
+            'clientId': 'e0111c5e-ad13-4209-9c08-16e913b5baf5',
+            'territory': 'GB',
+            'locale': 'en_GB'
+}
+
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.DEBUG)
 
@@ -38,15 +49,8 @@ class TwicketsClient:
         """Log in to the Twickets website."""
 
         url = f"{self.BASE_URL}auth/login?api_key=" + self.api_key
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
-            'content-type': 'application/json'
-        }
-        cookies = {
-            'clientId': 'e0111c5e-ad13-4209-9c08-16e913b5baf5',
-            'territory': 'GB',
-            'locale': 'en_GB'
-        }
+        
+        
         data = {
             "login": self.email,
             "password": self.password,
