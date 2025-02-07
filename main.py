@@ -14,12 +14,12 @@ proxies = {
 }
 
 headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
-            'content-type': 'application/json'
+    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
+    'content-type': 'application/json'
 }
 
 cookies = {
-            'clientId': 'e0111c5e-ad13-4209-9c08-16e913b5baf5',
+            'clientId': os.getenv("TWICKETS_CLIENT_ID"),
             'territory': 'GB',
             'locale': 'en_GB'
 }
@@ -33,7 +33,12 @@ class TwicketsClient:
     BASE_URL = "https://www.twickets.live/services/"
     # Required environment variables
     REQUIRED_KEYS = [
-        "TWICKETS_API_KEY", "TWICKETS_EMAIL", "TWICKETS_PASSWORD", "TWICKETS_EVENT_ID", "PROWL_API_KEY"
+        "TWICKETS_API_KEY", 
+        "TWICKETS_EMAIL", 
+        "TWICKETS_PASSWORD",
+        "TWICKETS_CLIENT_ID",  
+        "TWICKETS_EVENT_ID", 
+        "PROWL_API_KEY"
     ]
 
     def __init__(self):
@@ -44,6 +49,17 @@ class TwicketsClient:
         self.prowl_api_key = os.getenv("PROWL_API_KEY")
         self.session = requests.Session()
         self.token = None
+
+    def check_env_variables(self):
+        """ check required keys all present """
+        missing_keys = [
+            key for key in self.REQUIRED_KEYS if not os.getenv(key)]
+        if missing_keys:
+            for key in missing_keys:
+                logging.error("Environment variable %s is not set", key)
+            raise RuntimeError("Missing required environment variables")
+        else:
+            print("All required keys are populated")
 
     def authenticate(self):
         """Log in to the Twickets website."""
@@ -79,16 +95,22 @@ class TwicketsClient:
             logging.error(str(response))
             return None
     
-    def check_env_variables(self):
-        """ check required keys all present """
-        missing_keys = [
-            key for key in self.REQUIRED_KEYS if not os.getenv(key)]
-        if missing_keys:
-            for key in missing_keys:
-                print(f"Warning: Missing environment variable {key}")
-            exit(1)
-        else:
-            print("All required keys are populated")
+    def aid(self, token):
+        """aid is called immediately after authentication on website, so duplicated here"""
+        url = f"{self.BASE_URL}auth/aid?api_key=" + self.api_key
+        aid_headers = headers.copy()
+        aid_headers['Authorization'] = f"TOKEN {token}"
+        aid_headers['Referer'] = "referer: https://www.twickets.live/app/login?target=https:%2F%2Fwww.twickets.live%2Fen%2Fuk"
+
+        response = self.session.get(
+            url=url,
+            proxies=proxies,
+            headers=aid_headers,
+            cookies=cookies,
+            verify=False
+        )
+        response.raise_for_status()
+        return response.json()
 
     def check_availability(self):
         """ check ticket availability """
@@ -124,8 +146,10 @@ class TwicketsClient:
 
         if token is not None:
             logging.debug("Authenticated ok %s",token)
+            my_aid = self.aid(token)
+            logging.debug(my_aid)
         else:
-            logging.error("Authentication failed for some reason")
+            raise RuntimeError("Authentication failed for some reason")
         # while True:
         #    tickets = self.check_availability()
         #    if tickets:
