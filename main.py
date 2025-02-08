@@ -52,7 +52,7 @@ class TwicketsClient:
         self.password = os.getenv("TWICKETS_PASSWORD")
         self.event_id = os.getenv("TWICKETS_EVENT_ID")
         self.prowl_api_key = os.getenv("PROWL_API_KEY")
-        self.time_delay = 30
+        self.time_delay = 45
         self.session = requests.Session()
         self.token = None
 
