@@ -1,6 +1,7 @@
 """ module for holding and purchasing tickets on twickets """
 
 from time import sleep
+from datetime import datetime
 import os
 import logging
 import http.client
@@ -32,8 +33,7 @@ class TwicketsClient:
         self.email = os.getenv("TWICKETS_EMAIL")
         self.password = os.getenv("TWICKETS_PASSWORD")
         self.event_id = os.getenv("TWICKETS_EVENT_ID")
-        self.time_delay = 30
-       
+        
         self.token = None
         self.conn = http.client.HTTPSConnection(self.BASE_URL)
 
@@ -111,6 +111,9 @@ class TwicketsClient:
             START_MESSAGE = "starting ticket check"
             logging.debug(START_MESSAGE)  
             while True:
+                time_delay = round(random.uniform(15,45))
+                now = datetime.now()
+                logging.debug("Checking at %s with %s seconds delay",now.strftime("%H:%M:%S"),time_delay)
                 try:
                     items = self.check_event_availability()
                     backoff = 0
@@ -124,21 +127,21 @@ class TwicketsClient:
                     logging.error(err)
                     items = None
                     attempts +=1
-                    backoff = random.uniform(15,30)
+                    backoff = random.uniform(15,45)
                 if items:
                     id = str(items[0]['id']).split('@')[1]
                     url = f"https://www.twickets.live/app/block/{id},1"
                     self.prowl.send_notification(f"Check {url}")
                 else:
                     logging.debug("There are currently no tickets available")
-                SLEEP_INTERVAL = self.time_delay + (attempts*backoff)
+                SLEEP_INTERVAL = time_delay + (attempts*backoff)
                 logging.debug("sleeping for %s seconds", SLEEP_INTERVAL)
                 sleep(SLEEP_INTERVAL)
         except KeyboardInterrupt:
             QUIT_MESSAGE = "User interrupted connection with ctrl-C"
             logging.debug(QUIT_MESSAGE)
         except Exception as e:
-            logging.error(e)
+            logging.error("Caught exception of type %s", type(e).__name__)
             self.prowl.send_notification(e)
 
 if __name__ == "__main__":
