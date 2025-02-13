@@ -25,6 +25,9 @@ class TwicketsClient:
         "PROWL_API_KEY"
     ]
 
+    MIN_TIME=15
+    MAX_TIME=60
+
     
 
 
@@ -50,10 +53,13 @@ class TwicketsClient:
     def _ensure_connection(self):
         """Ensure the connection is open, reconnect if necessary."""
         try:
+            logging.debug("Ensuring connection")
             self.conn.connect()
-        except (http.client.HTTPException, OSError):
+        except (http.client.HTTPException, OSError) as err:
+            logging.error("Ensuring connection %s", err)
             self.conn = http.client.HTTPSConnection(self.BASE_URL)
 
+    
     
     def check_env_variables(self):
         """ check required keys all present """
@@ -82,16 +88,20 @@ class TwicketsClient:
             "password": self.password,
             "accountType": "U",
         })
+        logging.debug("about to connect")
         self.conn.request("POST", url, body=data, headers=self.headers)
         response = self.conn.getresponse()
         if response.status == 200:
             result = json.loads(response.read().decode())
-            return self.validate_auth_response(result)
+            token = self.validate_auth_response(result)
+            logging.debug("authenticated %s",token)
+            return token
+        logging.debug("authenticated")
         return None
 
     def check_event_availability(self):
         """ Check ticket availability """
-        self._ensure_connection()
+        conn = http.client.HTTPSConnection(self.BASE_URL)
         url = f"/services/g2/inventory/listings/{self.event_id}?api_key={self.api_key}"
         self.conn.request("GET", url, headers=self.headers)
         response = self.conn.getresponse()
@@ -104,17 +114,21 @@ class TwicketsClient:
     def run(self):
         """ run da ting """
         try:
+            logging.debug("Checking env variables")
             self.check_env_variables()
+            logging.debug("Authenticating")
             token = self.authenticate()
             if token is None:
                 raise RuntimeError("Authentication failed for some reason")
             START_MESSAGE = "starting ticket check"
             logging.debug(START_MESSAGE)  
+            count = 1
             while True:
-                time_delay = round(random.uniform(15,45))
+                time_delay = round(random.uniform(self.MIN_TIME,self.MAX_TIME))
                 now = datetime.now()
-                logging.debug("Checking at %s with %s seconds delay",now.strftime("%H:%M:%S"),time_delay)
+                
                 try:
+                    logging.debug("Cycle %s at %s with %s seconds delay",count,now.strftime("%H:%M:%S"),time_delay)
                     items = self.check_event_availability()
                     backoff = 0
                     attempts = 1
@@ -127,22 +141,24 @@ class TwicketsClient:
                     logging.error(err)
                     items = None
                     attempts +=1
-                    backoff = random.uniform(15,45)
+                    backoff = random.uniform(self.MIN_TIME,self.MAX_TIME) + 600 # need a big delay if you get a 403
                 if items:
                     id = str(items[0]['id']).split('@')[1]
+                    #TODO need to deal with repeat notifications
                     url = f"https://www.twickets.live/app/block/{id},1"
                     self.prowl.send_notification(f"Check {url}")
                 else:
                     logging.debug("There are currently no tickets available")
                 SLEEP_INTERVAL = time_delay + (attempts*backoff)
                 logging.debug("sleeping for %s seconds", SLEEP_INTERVAL)
+                count +=1
                 sleep(SLEEP_INTERVAL)
         except KeyboardInterrupt:
-            QUIT_MESSAGE = "User interrupted connection with ctrl-C"
+            QUIT_MESSAGE = "User interrupted connection with ctrl-C on cycle %s, count"
             logging.debug(QUIT_MESSAGE)
         except Exception as e:
-            logging.error("Caught exception of type %s", type(e).__name__)
-            self.prowl.send_notification(e)
+            logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
+            #self.prowl.send_notification(e)
 
 if __name__ == "__main__":
     client = TwicketsClient()
