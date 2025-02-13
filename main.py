@@ -8,16 +8,22 @@ import requests
 # Configure Charles Proxy
 PROXY_SERVER = "http://127.0.0.1:8888"  # Default Charles PROXY_SERVER address
 
-proxies = {
-    "http": PROXY_SERVER,
-    "https": PROXY_SERVER,  # Enable HTTPS proxying
-}
+#proxies = {
+#    "http": PROXY_SERVER,
+#    "https": PROXY_SERVER,  # Enable HTTPS proxying
+#}
+
+proxies = {}
 
 headers = {
-    'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
-    'content-type': 'application/json'
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
+  'Accept-Encoding': 'gzip, deflate',
+  'Accept': '*/*',
+  'Connection': 'keep-alive',
+  'Content-Length': '98',
+  'Cookie': 'clientId=e0111c5e-ad13-4209-9c08-16e913b5baf5; locale=en_GB; territory=GB',
+  'Content-Type': 'application/json'
 }
-
 cookies = {
             'clientId': os.getenv("TWICKETS_CLIENT_ID"),
             'territory': 'GB',
@@ -116,10 +122,12 @@ class TwicketsClient:
             "password": self.password,
             "accountType": "U",
         }
+        auth_headers = headers.copy()
+        auth_headers['Content-Length'] = str(len(data))
         response = self.session.post(
             url=url,
             proxies=proxies,
-            headers=headers,
+            headers=auth_headers,
             json=data,
             cookies=cookies,
             verify=False
