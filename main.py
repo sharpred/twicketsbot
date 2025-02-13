@@ -4,6 +4,8 @@ from time import sleep
 import os
 import logging
 import http.client
+import time
+import random
 import json
 from helpers import NotTwoHundredStatusError, ProwlNoticationsClient
 
@@ -30,7 +32,8 @@ class TwicketsClient:
         self.email = os.getenv("TWICKETS_EMAIL")
         self.password = os.getenv("TWICKETS_PASSWORD")
         self.event_id = os.getenv("TWICKETS_EVENT_ID")
-        self.time_delay = 45
+        self.time_delay = 30
+       
         self.token = None
         self.conn = http.client.HTTPSConnection(self.BASE_URL)
 
@@ -39,7 +42,8 @@ class TwicketsClient:
             'Accept-Encoding': 'gzip, deflate',
             'Accept': '*/*',
             'Connection': 'keep-alive',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache'
         }
         self.prowl = ProwlNoticationsClient()
 
@@ -110,20 +114,26 @@ class TwicketsClient:
                 try:
                     items = self.check_event_availability()
                     backoff = 0
+                    attempts = 1
                 except KeyboardInterrupt:
                     items = None
                     backoff == 0
+                    attempts = 1
                     logging.debug("User interrupted session")
-                except NotTwoHundredStatusError:
+                except NotTwoHundredStatusError as err:
+                    logging.error(err)
                     items = None
-                    backoff = 2 if backoff == 0 else backoff * 2
+                    attempts +=1
+                    backoff = random.uniform(15,30)
                 if items:
                     id = str(items[0]['id']).split('@')[1]
                     url = f"https://www.twickets.live/app/block/{id},1"
                     self.prowl.send_notification(f"Check {url}")
                 else:
                     logging.debug("There are currently no tickets available")
-                sleep(self.time_delay + backoff)
+                SLEEP_INTERVAL = self.time_delay + (attempts*backoff)
+                logging.debug("sleeping for %s seconds", SLEEP_INTERVAL)
+                sleep(SLEEP_INTERVAL)
         except KeyboardInterrupt:
             QUIT_MESSAGE = "User interrupted connection with ctrl-C"
             logging.debug(QUIT_MESSAGE)
