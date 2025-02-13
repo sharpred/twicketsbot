@@ -32,6 +32,7 @@ class TwicketsClient:
         self.event_id = os.getenv("TWICKETS_EVENT_ID")
         self.time_delay = 45
         self.token = None
+        self.conn = http.client.HTTPSConnection(self.BASE_URL)
 
         self.headers = {
         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
@@ -42,6 +43,14 @@ class TwicketsClient:
         }
         self.prowl = ProwlNoticationsClient()
 
+    def _ensure_connection(self):
+        """Ensure the connection is open, reconnect if necessary."""
+        try:
+            self.conn.connect()
+        except (http.client.HTTPException, OSError):
+            self.conn = http.client.HTTPSConnection(self.BASE_URL)
+
+    
     def check_env_variables(self):
         """ check required keys all present """
         missing_env_variables = [
@@ -62,15 +71,15 @@ class TwicketsClient:
 
     def authenticate(self):
         """Log in to the Twickets website."""
-        conn = http.client.HTTPSConnection(self.BASE_URL)
+        self._ensure_connection()
         url = f"/services/auth/login?api_key={self.api_key}"
         data = json.dumps({
             "login": self.email,
             "password": self.password,
             "accountType": "U",
         })
-        conn.request("POST", url, body=data, headers=self.headers)
-        response = conn.getresponse()
+        self.conn.request("POST", url, body=data, headers=self.headers)
+        response = self.conn.getresponse()
         if response.status == 200:
             result = json.loads(response.read().decode())
             return self.validate_auth_response(result)
@@ -78,10 +87,10 @@ class TwicketsClient:
 
     def check_event_availability(self):
         """ Check ticket availability """
-        conn = http.client.HTTPSConnection(self.BASE_URL)
+        self._ensure_connection()
         url = f"/services/g2/inventory/listings/{self.event_id}?api_key={self.api_key}"
-        conn.request("GET", url, headers=self.headers)
-        response = conn.getresponse()
+        self.conn.request("GET", url, headers=self.headers)
+        response = self.conn.getresponse()
         if response.status == 200:
             result = json.loads(response.read().decode())
             logging.debug(result)
@@ -97,7 +106,6 @@ class TwicketsClient:
                 raise RuntimeError("Authentication failed for some reason")
             START_MESSAGE = "starting ticket check"
             logging.debug(START_MESSAGE)  
-            self.prowl.send_notification(START_MESSAGE)
             while True:
                 try:
                     items = self.check_event_availability()
@@ -117,9 +125,11 @@ class TwicketsClient:
                     logging.debug("There are currently no tickets available")
                 sleep(self.time_delay + backoff)
         except KeyboardInterrupt:
-            logging.debug("User interrupted connection with ctrl-C")
+            QUIT_MESSAGE = "User interrupted connection with ctrl-C"
+            logging.debug(QUIT_MESSAGE)
         except Exception as e:
             logging.error(e)
+            self.prowl.send_notification(e)
 
 if __name__ == "__main__":
     client = TwicketsClient()
