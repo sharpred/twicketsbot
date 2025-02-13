@@ -18,10 +18,9 @@ class ProwlNoticationsClient:
     
     def __init__(self):
         self.prowl_api_key = os.getenv("PROWL_API_KEY")
-        
+
     def send_notification(self, message):
         """ send a prowl notification """
-        logging.debug("sending %s",message)
         conn = http.client.HTTPSConnection("api.prowlapp.com")
         data = json.dumps({
             "apikey": self.prowl_api_key,
@@ -29,9 +28,10 @@ class ProwlNoticationsClient:
             "event": "Ticket Alert",
             "description": message,
         })
+        logging.debug("data %s", data)
+        
         headers = {'Content-Type': 'application/json'}
         conn.request("POST", "/publicapi/add", body=data, headers=headers)
         response = conn.getresponse()
-        response.read()
-        logging.debug(response.status)
-    
+        rd = response.read().decode()
+        logging.debug(rd)
