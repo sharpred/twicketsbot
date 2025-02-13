@@ -3,7 +3,7 @@
 from time import sleep
 import os
 import logging
-import http.client
+import requests
 import json
 
 logging.captureWarnings(True)
@@ -21,17 +21,12 @@ class ProwlNoticationsClient:
 
     def send_notification(self, message):
         """ send a prowl notification """
-        conn = http.client.HTTPSConnection("api.prowlapp.com")
-        data = json.dumps({
+        prowl_url = "https://api.prowlapp.com/publicapi/add"
+        data = {
             "apikey": self.prowl_api_key,
             "application": "TwicketsBot",
             "event": "Ticket Alert",
             "description": message,
-        })
-        logging.debug("data %s", data)
-        
-        headers = {'Content-Type': 'application/json'}
-        conn.request("POST", "/publicapi/add", body=data, headers=headers)
-        response = conn.getresponse()
-        rd = response.read().decode()
-        logging.debug(rd)
+        }
+        response = requests.post(prowl_url, data=data, timeout=10)
+        response.raise_for_status()
