@@ -5,32 +5,15 @@ import os
 import logging
 import http.client
 import json
-
-headers = {
-  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
-  'Accept-Encoding': 'gzip, deflate',
-  'Accept': '*/*',
-  'Connection': 'keep-alive',
-  'Content-Type': 'application/json'
-}
-cookies = {
-            'clientId': os.getenv("TWICKETS_CLIENT_ID"),
-            'territory': 'GB',
-            'locale': 'en_GB'
-}
+from helpers import NotTwoHundredStatusError, ProwlNoticationsClient
 
 logging.captureWarnings(True)
 logging.basicConfig(level=logging.DEBUG)
 
-class NotTwoHundredStatusError(Exception):
-    """Twickets sometimes throws errors due to cloudflare rate limiting, want to capture this as an exception"""
-    def __init__(self, message):
-        super().__init__(message)
-
 class TwicketsClient:
     """Base class for handling Twickets API logic."""
     BASE_URL = "www.twickets.live"
-    REQUIRED_KEYS = [
+    REQUIRED_ENV_VARIABLES = [
         "TWICKETS_API_KEY", 
         "TWICKETS_EMAIL", 
         "TWICKETS_PASSWORD",
@@ -39,39 +22,36 @@ class TwicketsClient:
         "PROWL_API_KEY"
     ]
 
+    
+
+
     def __init__(self):
         self.api_key = os.getenv("TWICKETS_API_KEY")
         self.email = os.getenv("TWICKETS_EMAIL")
         self.password = os.getenv("TWICKETS_PASSWORD")
         self.event_id = os.getenv("TWICKETS_EVENT_ID")
-        self.prowl_api_key = os.getenv("PROWL_API_KEY")
         self.time_delay = 45
         self.token = None
 
+        self.headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:101.0) Gecko/20100101 Firefox/101.0',
+            'Accept-Encoding': 'gzip, deflate',
+            'Accept': '*/*',
+            'Connection': 'keep-alive',
+            'Content-Type': 'application/json'
+        }
+        self.prowl = ProwlNoticationsClient()
+
     def check_env_variables(self):
         """ check required keys all present """
-        missing_keys = [
-            key for key in self.REQUIRED_KEYS if not os.getenv(key)]
-        if missing_keys:
-            for key in missing_keys:
+        missing_env_variables = [
+            key for key in self.REQUIRED_ENV_VARIABLES if not os.getenv(key)]
+        if missing_env_variables:
+            for key in missing_env_variables:
                 logging.error("Environment variable %s is not set", key)
             raise RuntimeError("Missing required environment variables")
         else:
             print("All required keys are populated")
-
-    def send_prowl_notification(self, message):
-        """ send a prowl notification """
-        conn = http.client.HTTPSConnection("api.prowlapp.com")
-        data = json.dumps({
-            "apikey": self.prowl_api_key,
-            "application": "TwicketsBot",
-            "event": "Ticket Alert",
-            "description": message,
-        })
-        headers = {'Content-Type': 'application/json'}
-        conn.request("POST", "/publicapi/add", body=data, headers=headers)
-        response = conn.getresponse()
-        response.read()
 
     def validate_auth_response(self, response):
         """ Validate the authentication response """
@@ -89,11 +69,10 @@ class TwicketsClient:
             "password": self.password,
             "accountType": "U",
         })
-        conn.request("POST", url, body=data, headers=headers)
+        conn.request("POST", url, body=data, headers=self.headers)
         response = conn.getresponse()
         if response.status == 200:
             result = json.loads(response.read().decode())
-            logging.debug(result)
             return self.validate_auth_response(result)
         return None
 
@@ -101,10 +80,11 @@ class TwicketsClient:
         """ Check ticket availability """
         conn = http.client.HTTPSConnection(self.BASE_URL)
         url = f"/services/g2/inventory/listings/{self.event_id}?api_key={self.api_key}"
-        conn.request("GET", url, headers=headers)
+        conn.request("GET", url, headers=self.headers)
         response = conn.getresponse()
         if response.status == 200:
             result = json.loads(response.read().decode())
+            logging.debug(result)
             return result.get("responseData")
         raise NotTwoHundredStatusError(f"check_event_availability status: {response.status}")
 
@@ -115,6 +95,9 @@ class TwicketsClient:
             token = self.authenticate()
             if token is None:
                 raise RuntimeError("Authentication failed for some reason")
+            START_MESSAGE = "starting ticket check"
+            logging.debug(START_MESSAGE)  
+            self.prowl.send_notification(START_MESSAGE)
             while True:
                 try:
                     items = self.check_event_availability()
@@ -129,7 +112,7 @@ class TwicketsClient:
                 if items:
                     id = str(items[0]['id']).split('@')[1]
                     url = f"https://www.twickets.live/app/block/{id},1"
-                    self.send_prowl_notification(f"Check {url}")
+                    self.prowl.send_notification(f"Check {url}")
                 else:
                     logging.debug("There are currently no tickets available")
                 sleep(self.time_delay + backoff)
