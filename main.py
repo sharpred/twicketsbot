@@ -1,13 +1,14 @@
 """ module for holding and purchasing tickets on twickets """
 
 from time import sleep
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import logging
 import http.client
 import time
 import random
 import json
+import sys
 from helpers import NotTwoHundredStatusError, ProwlNoticationsClient
 
 logging.captureWarnings(True)
@@ -117,10 +118,10 @@ class TwicketsClient:
         logging.debug("check_event_availability sock is none: %s",(self.conn.sock is None))
         self._ensure_connection()
         url = f"/services/g2/inventory/listings/{self.event_id}?api_key={self.api_key}"
-        self.conn.request("GET", url, headers=self.headers)
         if self.conn.sock is not None:
             try:
                 logging.debug("Get response")
+                self.conn.request("GET", url, headers=self.headers)
                 response = self.conn.getresponse()
                 if response.status == 200:
                     result = json.loads(response.read().decode())
@@ -131,6 +132,7 @@ class TwicketsClient:
                     return items
                 raise NotTwoHundredStatusError(f"check_event_availability status: {response.status}")
             except http.client.ResponseNotReady:
+                logging.debug("check availability http.client.ResponseNotReady exception")
                 pass
             except http.client.HTTPException:
                 self.conn.close()
@@ -149,7 +151,7 @@ class TwicketsClient:
                 raise RuntimeError("Authentication failed for some reason")
             START_MESSAGE = "starting ticket check"
             logging.debug(START_MESSAGE)  
-            
+            attempts = 1
             while True:
                 time_delay = round(random.uniform(self.MIN_TIME,self.MAX_TIME))
                 now = datetime.now()
@@ -167,15 +169,23 @@ class TwicketsClient:
                                 self.prowl.send_notification(f"Check {url}")
                                 notified_ids.add(id)
                                 self.save_notified_ids(notified_ids)
-                    SLEEP_INTERVAL = time_delay + (attempts*backoff)
-                    sleep(SLEEP_INTERVAL)
-                except NotTwoHundredStatusError:
-                    logging.debug("** Restarting **")
-                    items = None
-                    count =1
-                    backoff = random.uniform(300,500) # need a big delay if you get a 403
                     SLEEP_INTERVAL = time_delay + (backoff)
-                    logging.debug("Sleeping for %s", SLEEP_INTERVAL)
+                    sleep(SLEEP_INTERVAL)
+                except NotTwoHundredStatusError as error_msg:
+                    logging.debug("** Restarting at %s **",now.strftime("%H:%M:%S"))
+                    logging.debug(error_msg)
+                    items = None
+                    attempts+=1
+                    if attempts > 5:
+                        #give up
+                        self.save_notified_ids(notified_ids)
+                        exit_error_message = "Exiting after five failed login attempts"
+                        self.prowl.send_notification(exit_error_message)
+                        sys.exit(exit_error_message)
+                    backoff = round(random.uniform(180,360)) # need a big delay if you get a 403
+                    SLEEP_INTERVAL = time_delay + (backoff)
+                    new_time = now + timedelta(seconds=n)
+                    logging.debug("Pausing due to auth error. Resuming at %s", new_time.strftime("%H:%M:%S"))
                     self.conn.close()
                     sleep(SLEEP_INTERVAL)
                     token = self.authenticate()
@@ -184,6 +194,7 @@ class TwicketsClient:
         except KeyboardInterrupt:
             QUIT_MESSAGE = "User interrupted connection with ctrl-C on cycle %s"
             logging.debug(QUIT_MESSAGE, count)
+            self.conn.close()
             self.save_notified_ids(notified_ids)
         except Exception as e:
             self.save_notified_ids(notified_ids)
