@@ -28,9 +28,6 @@ class TwicketsClient:
     MIN_TIME=15
     MAX_TIME=60
 
-    
-
-
     def __init__(self):
         self.api_key = os.getenv("TWICKETS_API_KEY")
         self.email = os.getenv("TWICKETS_EMAIL")
@@ -50,6 +47,23 @@ class TwicketsClient:
         }
         self.prowl = ProwlNoticationsClient()
 
+    NOTIFIED_IDS_FILE = "notified_ids.json"
+
+    def load_notified_ids(self):
+        """Load notified IDs from a file."""
+        if os.path.exists(self.NOTIFIED_IDS_FILE):
+            try:
+                with open(self.NOTIFIED_IDS_FILE, "r") as f:
+                    return set(json.load(f))
+            except json.JSONDecodeError:
+                return set()
+        return set()
+
+    def save_notified_ids(self,notified_ids):
+        """Save notified IDs to a file."""
+        with open(self.NOTIFIED_IDS_FILE, "w") as f:
+            json.dump(list(notified_ids), f)
+
     def _ensure_connection(self):
         """Ensure the connection is open, reconnect if necessary."""
         try:
@@ -59,8 +73,6 @@ class TwicketsClient:
             logging.error("Ensuring connection %s", err)
             self.conn = http.client.HTTPSConnection(self.BASE_URL)
 
-    
-    
     def check_env_variables(self):
         """ check required keys all present """
         missing_env_variables = [
@@ -96,7 +108,6 @@ class TwicketsClient:
             token = self.validate_auth_response(result)
             logging.debug("authenticated %s",token)
             return token
-        logging.debug("authenticated")
         return None
 
     def check_event_availability(self):
@@ -107,7 +118,7 @@ class TwicketsClient:
         response = self.conn.getresponse()
         if response.status == 200:
             result = json.loads(response.read().decode())
-            logging.debug(result)
+            #logging.debug(result)
             return result.get("responseData")
         raise NotTwoHundredStatusError(f"check_event_availability status: {response.status}")
 
@@ -115,6 +126,8 @@ class TwicketsClient:
         """ run da ting """
         try:
             logging.debug("Checking env variables")
+            count = 1
+            notified_ids = self.load_notified_ids()
             self.check_env_variables()
             logging.debug("Authenticating")
             token = self.authenticate()
@@ -122,7 +135,7 @@ class TwicketsClient:
                 raise RuntimeError("Authentication failed for some reason")
             START_MESSAGE = "starting ticket check"
             logging.debug(START_MESSAGE)  
-            count = 1
+            
             while True:
                 time_delay = round(random.uniform(self.MIN_TIME,self.MAX_TIME))
                 now = datetime.now()
@@ -132,33 +145,33 @@ class TwicketsClient:
                     items = self.check_event_availability()
                     backoff = 0
                     attempts = 1
-                except KeyboardInterrupt:
-                    items = None
-                    backoff == 0
-                    attempts = 1
-                    logging.debug("User interrupted session")
+                    if items:
+                        for item in items:
+                            id = str(items['id']).split('@')[1]
+                            if id not in notified_ids:
+                                url = f"https://www.twickets.live/app/block/{id},1"
+                                self.prowl.send_notification(f"Check {url}")
+                                notified_ids.add(id)
+                                self.save_notified_ids(notified_ids)
+                    else:
+                        logging.debug("There are currently no tickets available")
+                    SLEEP_INTERVAL = time_delay + (attempts*backoff)
+                    logging.debug("sleeping for %s seconds", SLEEP_INTERVAL)
+                    count +=1
+                    sleep(SLEEP_INTERVAL)
                 except NotTwoHundredStatusError as err:
                     logging.error(err)
                     items = None
                     attempts +=1
                     backoff = random.uniform(self.MIN_TIME,self.MAX_TIME) + 600 # need a big delay if you get a 403
-                if items:
-                    id = str(items[0]['id']).split('@')[1]
-                    #TODO need to deal with repeat notifications
-                    url = f"https://www.twickets.live/app/block/{id},1"
-                    self.prowl.send_notification(f"Check {url}")
-                else:
-                    logging.debug("There are currently no tickets available")
-                SLEEP_INTERVAL = time_delay + (attempts*backoff)
-                logging.debug("sleeping for %s seconds", SLEEP_INTERVAL)
-                count +=1
-                sleep(SLEEP_INTERVAL)
         except KeyboardInterrupt:
-            QUIT_MESSAGE = "User interrupted connection with ctrl-C on cycle %s, count"
-            logging.debug(QUIT_MESSAGE)
+            QUIT_MESSAGE = "User interrupted connection with ctrl-C on cycle %s"
+            logging.debug(QUIT_MESSAGE, count)
+            self.save_notified_ids(notified_ids)
         except Exception as e:
             logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
-            #self.prowl.send_notification(e)
+            self.prowl.send_notification(e)
+            self.save_notified_ids(notified_ids)
 
 if __name__ == "__main__":
     client = TwicketsClient()
