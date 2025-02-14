@@ -114,19 +114,21 @@ class TwicketsClient:
 
     def check_event_availability(self):
         """ Check ticket availability """
-        logging.debug("check_event_availability sock %s",(self.conn.sock is None))
+        logging.debug("check_event_availability sock is none: %s",(self.conn.sock is None))
         self._ensure_connection()
         url = f"/services/g2/inventory/listings/{self.event_id}?api_key={self.api_key}"
         self.conn.request("GET", url, headers=self.headers)
         if self.conn.sock is not None:
             try:
+                logging.debug("Get response")
                 response = self.conn.getresponse()
                 if response.status == 200:
                     result = json.loads(response.read().decode())
                     code = result.get("responseCode")
                     clock_val = result.get("clock")
-                    logging.debug("check_event_availability response code %s, clock %s",code, clock_val)
-                    return result.get("responseData")
+                    items = result.get("responseData")
+                    logging.debug("check availability code %s, clock %s, tickets %s",code, clock_val, len(items))
+                    return items
                 raise NotTwoHundredStatusError(f"check_event_availability status: {response.status}")
             except http.client.ResponseNotReady:
                 pass
@@ -156,6 +158,7 @@ class TwicketsClient:
                     items = self.check_event_availability()
                     backoff = 0
                     attempts = 1
+                    count +=1
                     if items:
                         for item in items:
                             id = str(items['id']).split('@')[1]
@@ -164,17 +167,20 @@ class TwicketsClient:
                                 self.prowl.send_notification(f"Check {url}")
                                 notified_ids.add(id)
                                 self.save_notified_ids(notified_ids)
-                    else:
-                        logging.debug("There are currently no tickets available")
                     SLEEP_INTERVAL = time_delay + (attempts*backoff)
-                    logging.debug("sleeping for %s seconds", SLEEP_INTERVAL)
-                    count +=1
                     sleep(SLEEP_INTERVAL)
-                except NotTwoHundredStatusError as err:
-                    logging.error(err)
+                except NotTwoHundredStatusError:
+                    logging.debug("** Restarting **")
                     items = None
-                    attempts +=1
-                    backoff = random.uniform(self.MIN_TIME,self.MAX_TIME) + 600 # need a big delay if you get a 403
+                    count =1
+                    backoff = random.uniform(300,500) # need a big delay if you get a 403
+                    SLEEP_INTERVAL = time_delay + (backoff)
+                    logging.debug("Sleeping for %s", SLEEP_INTERVAL)
+                    self.conn.close()
+                    sleep(SLEEP_INTERVAL)
+                    token = self.authenticate()
+                    if token is None:
+                        raise RuntimeError("Authentication failed for some reason")
         except KeyboardInterrupt:
             QUIT_MESSAGE = "User interrupted connection with ctrl-C on cycle %s"
             logging.debug(QUIT_MESSAGE, count)
@@ -183,7 +189,7 @@ class TwicketsClient:
             self.save_notified_ids(notified_ids)
             logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
             error_msg = f"Cycle {count} Caught exception {e}"
-            self.prowl.send_notification(eerror_msg)
+            self.prowl.send_notification(error_msg)
     
 
 if __name__ == "__main__":
