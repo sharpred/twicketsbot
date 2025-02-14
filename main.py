@@ -183,8 +183,8 @@ class TwicketsClient:
                         self.prowl.send_notification(exit_error_message)
                         sys.exit(exit_error_message)
                     backoff = round(random.uniform(180,360)) # need a big delay if you get a 403
-                    SLEEP_INTERVAL = time_delay + (backoff)
-                    new_time = now + timedelta(seconds=n)
+                    SLEEP_INTERVAL = time_delay + backoff
+                    new_time = now + timedelta(seconds=SLEEP_INTERVAL)
                     logging.debug("Pausing due to auth error. Resuming at %s", new_time.strftime("%H:%M:%S"))
                     self.conn.close()
                     sleep(SLEEP_INTERVAL)

@@ -186,4 +186,5 @@ pyrightconfig.json
 solution*.txt
 scratchpadnotes.txt
 scratch/*
+secrets/*
 notified_ids.json
