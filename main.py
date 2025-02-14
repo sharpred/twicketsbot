@@ -26,7 +26,7 @@ class TwicketsClient:
     ]
 
     MIN_TIME=15
-    MAX_TIME=60
+    MAX_TIME=30
 
     def __init__(self):
         self.api_key = os.getenv("TWICKETS_API_KEY")
@@ -69,9 +69,11 @@ class TwicketsClient:
         try:
             logging.debug("Ensuring connection")
             self.conn.connect()
-        except (http.client.HTTPException, OSError) as err:
-            logging.error("Ensuring connection %s", err)
+        except (http.client.HTTPException, OSError):
+            logging.error("Ensuring connection error")
+            self.conn.close()
             self.conn = http.client.HTTPSConnection(self.BASE_URL)
+            self.conn.connect()
 
     def check_env_variables(self):
         """ check required keys all present """
@@ -112,16 +114,26 @@ class TwicketsClient:
 
     def check_event_availability(self):
         """ Check ticket availability """
-        conn = http.client.HTTPSConnection(self.BASE_URL)
+        logging.debug("check_event_availability sock %s",(self.conn.sock is None))
+        self._ensure_connection()
         url = f"/services/g2/inventory/listings/{self.event_id}?api_key={self.api_key}"
         self.conn.request("GET", url, headers=self.headers)
-        response = self.conn.getresponse()
-        if response.status == 200:
-            result = json.loads(response.read().decode())
-            #logging.debug(result)
-            return result.get("responseData")
-        raise NotTwoHundredStatusError(f"check_event_availability status: {response.status}")
-
+        if self.conn.sock is not None:
+            try:
+                response = self.conn.getresponse()
+                if response.status == 200:
+                    result = json.loads(response.read().decode())
+                    code = result.get("responseCode")
+                    clock_val = result.get("clock")
+                    logging.debug("check_event_availability response code %s, clock %s",code, clock_val)
+                    return result.get("responseData")
+                raise NotTwoHundredStatusError(f"check_event_availability status: {response.status}")
+            except http.client.ResponseNotReady:
+                pass
+            except http.client.HTTPException:
+                self.conn.close()
+        return []
+    
     def run(self):
         """ run da ting """
         try:
@@ -139,7 +151,6 @@ class TwicketsClient:
             while True:
                 time_delay = round(random.uniform(self.MIN_TIME,self.MAX_TIME))
                 now = datetime.now()
-                
                 try:
                     logging.debug("Cycle %s at %s with %s seconds delay",count,now.strftime("%H:%M:%S"),time_delay)
                     items = self.check_event_availability()
@@ -169,9 +180,11 @@ class TwicketsClient:
             logging.debug(QUIT_MESSAGE, count)
             self.save_notified_ids(notified_ids)
         except Exception as e:
-            logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
-            self.prowl.send_notification(e)
             self.save_notified_ids(notified_ids)
+            logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
+            error_msg = f"Cycle {count} Caught exception {e}"
+            self.prowl.send_notification(eerror_msg)
+    
 
 if __name__ == "__main__":
     client = TwicketsClient()
