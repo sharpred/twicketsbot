@@ -2,6 +2,7 @@
 
 from time import sleep
 from datetime import datetime, timedelta
+import socket
 import os
 import logging
 import http.client
@@ -28,6 +29,8 @@ class TwicketsClient:
 
     MIN_TIME=15
     MAX_TIME=30
+    MAX_RETRIES = 5  # Number of retry attempts
+    BASE_DELAY = 2   # Base delay in seconds (exponential backoff)
 
     def __init__(self):
         self.api_key = os.getenv("TWICKETS_API_KEY")
@@ -67,14 +70,23 @@ class TwicketsClient:
 
     def _ensure_connection(self):
         """Ensure the connection is open, reconnect if necessary."""
-        try:
-            logging.debug("Ensuring connection")
-            self.conn.connect()
-        except (http.client.HTTPException, OSError):
-            logging.error("Ensuring connection error")
-            self.conn.close()
-            self.conn = http.client.HTTPSConnection(self.BASE_URL)
-            self.conn.connect()
+        retries = 0
+        while retries < self.MAX_RETRIES:
+            try:
+                logging.debug(f"Attempting connection to {self.conn.host}")
+                self.conn.connect()
+                logging.debug("Connection successful")
+                return
+            except socket.gaierror as ge:
+                logging.warning(f"DNS resolution failed: {ge}. Retrying in {BASE_DELAY * (2 ** retries)}s...")
+            except (http.client.HTTPException, OSError):
+                logging.warning("Connection error")
+                self.conn.close()
+                self.conn = http.client.HTTPSConnection(self.BASE_URL)
+                self.conn.connect()
+            retries += 1
+            time.sleep(self.BASE_DELAY * (2 ** retries))
+        logging.error("Max retries reached. Could not establish a connection.")
 
     def check_env_variables(self):
         """ check required keys all present """
@@ -109,13 +121,14 @@ class TwicketsClient:
         if response.status == 200:
             result = json.loads(response.read().decode())
             token = self.validate_auth_response(result)
-            logging.debug("authenticated %s",token)
+            logging.debug("Authenticated successfully")
             return token
+        logging.warning(f"Authentication error status {response.status}")
         return None
 
     def check_event_availability(self):
         """ Check ticket availability """
-        logging.debug("check_event_availability sock is none: %s",(self.conn.sock is None))
+        logging.debug("Connection socket is none: %s",(self.conn.sock is None))
         self._ensure_connection()
         url = f"/services/g2/inventory/listings/{self.event_id}?api_key={self.api_key}"
         if self.conn.sock is not None:
@@ -128,11 +141,11 @@ class TwicketsClient:
                     code = result.get("responseCode")
                     clock_val = result.get("clock")
                     items = result.get("responseData")
-                    logging.debug("check availability code %s, clock %s, tickets %s",code, clock_val, len(items))
+                    logging.debug("Response code %s, clock %s, tickets %s",code, clock_val, len(items))
                     return items
                 raise NotTwoHundredStatusError(f"check_event_availability status: {response.status}")
             except http.client.ResponseNotReady:
-                logging.debug("check availability http.client.ResponseNotReady exception")
+                logging.debug("http.client.ResponseNotReady exception")
                 pass
             except http.client.HTTPException:
                 self.conn.close()
@@ -151,15 +164,16 @@ class TwicketsClient:
                 raise RuntimeError("Authentication failed for some reason")
             START_MESSAGE = "starting ticket check"
             logging.debug(START_MESSAGE)  
-            attempts = 1
+            attempts = 0
             while True:
                 time_delay = round(random.uniform(self.MIN_TIME,self.MAX_TIME))
+                auth_time_delay = round(random.uniform(180,360)) # need a big delay if you get a 403    
                 now = datetime.now()
                 try:
                     logging.debug("Cycle %s at %s with %s seconds delay",count,now.strftime("%H:%M:%S"),time_delay)
                     items = self.check_event_availability()
                     backoff = 0
-                    attempts = 1
+                    attempts = 0
                     count +=1
                     if items:
                         for item in items:
@@ -175,19 +189,18 @@ class TwicketsClient:
                     logging.debug("** Restarting at %s **",now.strftime("%H:%M:%S"))
                     logging.debug(error_msg)
                     items = None
-                    attempts+=1
-                    if attempts > 5:
+                    if attempts > self.MAX_RETRIES:
                         #give up
                         self.save_notified_ids(notified_ids)
                         exit_error_message = "Exiting after five failed login attempts"
                         self.prowl.send_notification(exit_error_message)
                         sys.exit(exit_error_message)
-                    backoff = round(random.uniform(180,360)) # need a big delay if you get a 403
-                    SLEEP_INTERVAL = time_delay + backoff
+                    SLEEP_INTERVAL = auth_time_delay * (2 ** attempts)
                     new_time = now + timedelta(seconds=SLEEP_INTERVAL)
                     logging.debug("Pausing due to auth error. Resuming at %s", new_time.strftime("%H:%M:%S"))
                     self.conn.close()
                     sleep(SLEEP_INTERVAL)
+                    attempts+=1
                     token = self.authenticate()
                     if token is None:
                         raise RuntimeError("Authentication failed for some reason")
