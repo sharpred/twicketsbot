@@ -167,7 +167,7 @@ class TwicketsClient:
             attempts = 0
             while True:
                 time_delay = round(random.uniform(self.MIN_TIME,self.MAX_TIME))
-                auth_time_delay = round(random.uniform(180,360)) # need a big delay if you get a 403    
+                auth_time_delay = round(random.uniform(180,360)) # need a bigger delay if you get a 403    
                 now = datetime.now()
                 try:
                     logging.debug("Check cycle %s at %s with %s seconds delay",count,now.strftime("%H:%M:%S"),time_delay)
@@ -196,7 +196,7 @@ class TwicketsClient:
                         sys.exit(exit_error_message)
                     SLEEP_INTERVAL = auth_time_delay * (2 ** attempts)
                     new_time = now + timedelta(seconds=SLEEP_INTERVAL)
-                    logging.debug("Pausing due to auth error. Resuming at %s", new_time.strftime("%H:%M:%S"))
+                    logging.debug("Pausing due to 403 error. Resuming at %s", new_time.strftime("%H:%M:%S"))
                     self.conn.close()
                     sleep(SLEEP_INTERVAL)
                     attempts+=1
