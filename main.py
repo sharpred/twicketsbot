@@ -172,6 +172,7 @@ class TwicketsClient:
                 try:
                     logging.debug("Check cycle %s at %s with %s seconds delay",count,now.strftime("%H:%M:%S"),time_delay)
                     items = self.check_event_availability()
+                    #reset everything if items returned
                     backoff = 0
                     attempts = 0
                     count +=1
@@ -186,7 +187,7 @@ class TwicketsClient:
                     SLEEP_INTERVAL = time_delay + (backoff)
                     sleep(SLEEP_INTERVAL)
                 except NotTwoHundredStatusError as error_msg:
-                    logging.debug(f"{error_msg} Restarting at %s",now.strftime("%H:%M:%S"))
+                    logging.debug(f"{error_msg} Restarting at %s. Attempt {attempts}",now.strftime("%H:%M:%S"))
                     items = None
                     if attempts > self.MAX_RETRIES:
                         #give up
