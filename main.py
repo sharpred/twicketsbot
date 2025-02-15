@@ -143,7 +143,7 @@ class TwicketsClient:
                     items = result.get("responseData")
                     logging.debug("Response code %s, clock %s, tickets %s",code, clock_val, len(items))
                     return items
-                raise NotTwoHundredStatusError(f"check_event_availability status: {response.status}")
+                raise NotTwoHundredStatusError(f"Check availability status: {response.status}")
             except http.client.ResponseNotReady:
                 logging.debug("http.client.ResponseNotReady exception")
                 pass
@@ -170,7 +170,7 @@ class TwicketsClient:
                 auth_time_delay = round(random.uniform(180,360)) # need a big delay if you get a 403    
                 now = datetime.now()
                 try:
-                    logging.debug("Cycle %s at %s with %s seconds delay",count,now.strftime("%H:%M:%S"),time_delay)
+                    logging.debug("Check cycle %s at %s with %s seconds delay",count,now.strftime("%H:%M:%S"),time_delay)
                     items = self.check_event_availability()
                     backoff = 0
                     attempts = 0
@@ -186,8 +186,7 @@ class TwicketsClient:
                     SLEEP_INTERVAL = time_delay + (backoff)
                     sleep(SLEEP_INTERVAL)
                 except NotTwoHundredStatusError as error_msg:
-                    logging.debug("** Restarting at %s **",now.strftime("%H:%M:%S"))
-                    logging.debug(error_msg)
+                    logging.debug(f"{error_msg} Restarting at %s",now.strftime("%H:%M:%S"))
                     items = None
                     if attempts > self.MAX_RETRIES:
                         #give up
