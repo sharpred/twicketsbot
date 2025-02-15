@@ -30,7 +30,7 @@ class TwicketsClient:
     MIN_TIME=15
     MAX_TIME=30
     MAX_RETRIES = 5  # Number of retry attempts
-    BASE_DELAY = 2   # Base delay in seconds (exponential backoff)
+    BASE_DELAY = 60   # Base delay in seconds (exponential backoff)
 
     def __init__(self):
         self.api_key = os.getenv("TWICKETS_API_KEY")
