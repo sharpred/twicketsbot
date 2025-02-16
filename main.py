@@ -173,8 +173,13 @@ class TwicketsClient:
                     wake_time = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 8, 0, 0)
                     sleep_duration = (wake_time - now).total_seconds()
                     logging.debug(f"Sleeping from {now.strftime('%H:%M:%S')} until {wake_time.strftime('%H:%M:%S')}")
+                    self.conn.close()
                     time.sleep(sleep_duration)
                     count = 1
+                    token = self.authenticate()
+                    if token is None:
+                        raise RuntimeError("Authentication failed for some reason")
+        
                     continue  # Restart loop after waking up
 
                 time_delay = round(random.uniform(self.MIN_TIME,self.MAX_TIME))
