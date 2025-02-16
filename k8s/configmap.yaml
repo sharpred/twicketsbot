@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: my-app-config
+  name: twickets-bot-config
 data:
   TWICKETS_EVENT_ID: "1884917808408563712"
   TWICKETS_CLIENT_ID: "e0111c5e-ad13-4209-9c08-16e913b5baf5"

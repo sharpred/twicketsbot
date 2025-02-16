@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: twickets-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: twickets-bot
+  template:
+    metadata:
+      labels:
+        app: twickets-bot
+    spec:
+      containers:
+        - name: twickets-bot
+          image: sharpred/twickets-bot:latest
+          envFrom:
+            - configMapRef:
+                name: twickets-bot-config
+            - secretRef:
+                name: prowl-api-key
+            - secretRef:
+                name: twickets-api-key-secret
+            - secretRef:
+                name: twickets-email
+            - secretRef:
+                name: twickets-password
+          restartPolicy: Always

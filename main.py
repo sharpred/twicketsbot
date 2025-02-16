@@ -166,9 +166,19 @@ class TwicketsClient:
             logging.debug(START_MESSAGE)  
             attempts = 0
             while True:
+                now = datetime.now()
+                # Check if it's past 22:00, sleep until 08:00
+                if now.hour >= 22 or now.hour < 8:
+                    tomorrow = now + timedelta(days=1)
+                    wake_time = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 8, 0, 0)
+                    sleep_duration = (wake_time - now).total_seconds()
+                    logging.debug(f"Sleeping from {now.strftime('%H:%M:%S')} until {wake_time.strftime('%H:%M:%S')}")
+                    time.sleep(sleep_duration)
+                    continue  # Restart loop after waking up
+
                 time_delay = round(random.uniform(self.MIN_TIME,self.MAX_TIME))
                 auth_time_delay = round(random.uniform(180,360)) # need a bigger delay if you get a 403    
-                now = datetime.now()
+                
                 try:
                     logging.debug("Check cycle %s at %s with %s seconds delay",count,now.strftime("%H:%M:%S"),time_delay)
                     items = self.check_event_availability()
