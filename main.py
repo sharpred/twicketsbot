@@ -174,6 +174,7 @@ class TwicketsClient:
                     sleep_duration = (wake_time - now).total_seconds()
                     logging.debug(f"Sleeping from {now.strftime('%H:%M:%S')} until {wake_time.strftime('%H:%M:%S')}")
                     time.sleep(sleep_duration)
+                    count = 1
                     continue  # Restart loop after waking up
 
                 time_delay = round(random.uniform(self.MIN_TIME,self.MAX_TIME))
@@ -197,7 +198,7 @@ class TwicketsClient:
                     SLEEP_INTERVAL = time_delay + (backoff)
                     sleep(SLEEP_INTERVAL)
                 except NotTwoHundredStatusError as error_msg:
-                    logging.debug(f"{error_msg} Restarting at %s. Attempt {attempts}",now.strftime("%H:%M:%S"))
+                    logging.debug(f"{error_msg} %s. Attempt {attempts}",now.strftime("%H:%M:%S"))
                     items = None
                     if attempts > self.MAX_RETRIES:
                         #give up
