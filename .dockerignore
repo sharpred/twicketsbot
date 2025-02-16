@@ -1,0 +1,11 @@
+Dockerfile
+docker-compose.yml
+secrets/
+k8s/
+scratch/
+.git
+.gitignore
+.gitmodules
+.pylintrc
+deploy.sh
+README.ipynbs
