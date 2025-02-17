@@ -99,7 +99,7 @@ class TwicketsClient:
                 logging.error("Environment variable %s is not set", key)
             raise RuntimeError("Missing required environment variables")
         else:
-            print("All required keys are populated")
+            logging.debug("All required keys are populated")
 
     def validate_auth_response(self, response):
         """ Validate the authentication response """
@@ -143,11 +143,11 @@ class TwicketsClient:
                     code = result.get("responseCode")
                     clock_val = result.get("clock")
                     items = result.get("responseData")
-                    logging.debug("Response code %s, clock %s, tickets %s",code, clock_val, len(items))
+                    logging.info("Response code %s, clock %s, tickets %s",code, clock_val, len(items))
                     return items
                 raise NotTwoHundredStatusError(f"Check availability status: {response.status}")
             except http.client.ResponseNotReady:
-                logging.debug("http.client.ResponseNotReady exception")
+                logging.warning("http.client.ResponseNotReady exception")
                 pass
             except http.client.HTTPException:
                 self.conn.close()
@@ -206,17 +206,18 @@ class TwicketsClient:
                     SLEEP_INTERVAL = time_delay + (backoff)
                     sleep(SLEEP_INTERVAL)
                 except NotTwoHundredStatusError as error_msg:
-                    logging.debug(f"{error_msg} %s. Attempt {attempts}",now.strftime("%H:%M:%S"))
+                    logging.info(f"{error_msg} %s. Attempt {attempts}",now.strftime("%H:%M:%S"))
                     items = None
                     if attempts > self.MAX_RETRIES:
                         #give up
                         self.save_notified_ids(notified_ids)
                         exit_error_message = "Exiting after five failed login attempts"
                         self.prowl.send_notification(exit_error_message)
+                        logging.error(exit_error_message)
                         sys.exit(exit_error_message)
                     SLEEP_INTERVAL = auth_time_delay * (2 ** attempts)
                     new_time = now + timedelta(seconds=SLEEP_INTERVAL)
-                    logging.debug("Pausing due to 403 error. Resuming at %s", new_time.strftime("%H:%M:%S"))
+                    logging.warning("Pausing due to 403 error. Resuming at %s", new_time.strftime("%H:%M:%S"))
                     self.conn.close()
                     sleep(SLEEP_INTERVAL)
                     attempts+=1
@@ -225,7 +226,7 @@ class TwicketsClient:
                         raise RuntimeError("Authentication failed for some reason")
         except KeyboardInterrupt:
             QUIT_MESSAGE = "User interrupted connection with ctrl-C on cycle %s"
-            logging.debug(QUIT_MESSAGE, count)
+            logging.info(QUIT_MESSAGE, count)
             self.conn.close()
             self.save_notified_ids(notified_ids)
         except Exception as e:
