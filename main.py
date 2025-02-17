@@ -12,8 +12,9 @@ import json
 import sys
 from helpers import NotTwoHundredStatusError, ProwlNoticationsClient
 
-logging.captureWarnings(True)
-logging.basicConfig(level=logging.DEBUG)
+#logging.captureWarnings(True)
+logging.basicConfig(level=logging.WARNING)
+print(f"Logging level set to: {logging.getLogger().getEffectiveLevel()}")
 
 class TwicketsClient:
     """Base class for handling Twickets API logic."""
@@ -81,6 +82,7 @@ class TwicketsClient:
                 logging.warning(f"DNS resolution failed: {ge}. Retrying in {BASE_DELAY * (2 ** retries)}s...")
             except (http.client.HTTPException, OSError):
                 logging.warning("Connection error")
+                #TODO wrap self.conn.close in method
                 self.conn.close()
                 self.conn = http.client.HTTPSConnection(self.BASE_URL)
                 self.conn.connect()
@@ -165,11 +167,12 @@ class TwicketsClient:
             START_MESSAGE = "starting ticket check"
             logging.debug(START_MESSAGE)  
             attempts = 0
+            
             while True:
                 now = datetime.now()
+                tomorrow = now + timedelta(days=1)
                 # Check if it's past 22:00, sleep until 08:00
                 if now.hour >= 22 or now.hour < 8:
-                    tomorrow = now + timedelta(days=1)
                     wake_time = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 8, 0, 0)
                     sleep_duration = (wake_time - now).total_seconds()
                     logging.debug(f"Sleeping from {now.strftime('%H:%M:%S')} until {wake_time.strftime('%H:%M:%S')}")
@@ -229,6 +232,7 @@ class TwicketsClient:
             self.save_notified_ids(notified_ids)
             logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
             error_msg = f"Cycle {count} Caught exception {e}"
+            self.conn.close()
             self.prowl.send_notification(error_msg)
     
 
