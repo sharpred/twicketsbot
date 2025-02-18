@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busytestenv
+  namespace: test
+spec:
+  containers:
+  - image: busybox
+    command:
+      - sleep
+      - "infinity"
+    imagePullPolicy: IfNotPresent
+    name: busybox
+    envFrom:
+      - configMapRef:
+          name: twickets-bot-config
+      - secretRef:
+          name: prowl-api-key
+      - secretRef:
+          name: twickets-api-key-secret
+      - secretRef:
+          name: twickets-email
+      - secretRef:
+          name: twickets-password
+
+  restartPolicy: Always

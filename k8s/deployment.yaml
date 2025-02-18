@@ -1,29 +1,31 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: twickets-bot
+  name: twicketsbot
+  namespace: test
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: twickets-bot
+      app: twicketsbot
   template:
     metadata:
       labels:
-        app: twickets-bot
+        app: twicketsbot
     spec:
       containers:
-        - name: twickets-bot
-          image: sharpred/twickets-bot:latest
-          envFrom:
-            - configMapRef:
-                name: twickets-bot-config
-            - secretRef:
-                name: prowl-api-key
-            - secretRef:
-                name: twickets-api-key-secret
-            - secretRef:
-                name: twickets-email
-            - secretRef:
-                name: twickets-password
-          restartPolicy: Always
+      - name: twicketsbot
+        image: registry.sharpred.work/twicketsbot:latest
+        envFrom:
+          - configMapRef:
+              name: twickets-bot-config
+          - secretRef:
+              name: prowl-api-key
+          - secretRef:
+              name: twickets-api-key-secret
+          - secretRef:
+              name: twickets-email
+          - secretRef:
+              name: twickets-password
+      imagePullSecrets:
+        - name: regcred
