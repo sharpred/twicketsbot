@@ -87,7 +87,7 @@ class TwicketsClient:
                 self.conn = http.client.HTTPSConnection(self.BASE_URL)
                 self.conn.connect()
             retries += 1
-            time.sleep(self.BASE_DELAY * (2 ** retries))
+            time.sleep(BASE_DELAY * (2 ** retries))
         logging.error("Max retries reached. Could not establish a connection.")
 
     def check_env_variables(self):
