@@ -11,6 +11,7 @@ import random
 import json
 import sys
 from helpers import NotTwoHundredStatusError, ProwlNoticationsClient
+from telegram import TelegramBotClient
 
 #logging.captureWarnings(True)
 logging.basicConfig(level=logging.WARNING)
@@ -51,6 +52,7 @@ class TwicketsClient:
             'Cache-Control': 'no-cache'
         }
         self.prowl = ProwlNoticationsClient()
+        self.teleclient = TelegramBotClient()
 
     NOTIFIED_IDS_FILE = "notified_ids.json"
 
@@ -171,20 +173,6 @@ class TwicketsClient:
             while True:
                 now = datetime.now()
                 tomorrow = now + timedelta(days=1)
-                # Check if it's past 22:00, sleep until 08:00
-                if now.hour >= 22 or now.hour < 8:
-                    wake_time = datetime(tomorrow.year, tomorrow.month, tomorrow.day, 8, 0, 0)
-                    sleep_duration = (wake_time - now).total_seconds()
-                    logging.debug(f"Sleeping from {now.strftime('%H:%M:%S')} until {wake_time.strftime('%H:%M:%S')}")
-                    self.conn.close()
-                    time.sleep(sleep_duration)
-                    count = 1
-                    token = self.authenticate()
-                    if token is None:
-                        raise RuntimeError("Authentication failed for some reason")
-        
-                    continue  # Restart loop after waking up
-
                 time_delay = round(random.uniform(self.MIN_TIME,self.MAX_TIME))
                 auth_time_delay = round(random.uniform(180,360)) # need a bigger delay if you get a 403    
                 
@@ -200,7 +188,9 @@ class TwicketsClient:
                             id = str(items['id']).split('@')[1]
                             if id not in notified_ids:
                                 url = f"https://www.twickets.live/app/block/{id},1"
-                                self.prowl.send_notification(f"Check {url}")
+
+                                #self.prowl.send_notification(f"Check {url}")
+                                self.teleclient.send_notification("Ticket Alert", f"Check {url}")
                                 notified_ids.add(id)
                                 self.save_notified_ids(notified_ids)
                     SLEEP_INTERVAL = time_delay + (backoff)

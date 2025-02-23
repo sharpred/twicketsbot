@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: twicketsbot
-        image: registry.sharpred.work/twicketsbot:latest
+        image: registry.sharpred.work/twicketsbot:2.0
         envFrom:
           - configMapRef:
               name: twickets-bot-config
@@ -27,5 +27,7 @@ spec:
               name: twickets-email
           - secretRef:
               name: twickets-password
+          - secretRef:
+              name: telegram-keys
       imagePullSecrets:
         - name: regcred

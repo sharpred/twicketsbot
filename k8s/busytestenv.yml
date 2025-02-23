@@ -22,5 +22,7 @@ spec:
           name: twickets-email
       - secretRef:
           name: twickets-password
+      - secretRef:
+          name: telegram-keys
 
   restartPolicy: Always
