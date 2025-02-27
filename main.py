@@ -177,7 +177,7 @@ class TwicketsClient:
                 auth_time_delay = round(random.uniform(180,360)) # need a bigger delay if you get a 403    
                 
                 try:
-                    logging.debug("Check cycle %s at %s with %s seconds delay",count,now.strftime("%H:%M:%S"),time_delay)
+                    logging.debug("Check cycle %s at %s with %s seconds delay",count,now.strftime("%d/%m %H:%M:%S"),time_delay)
                     items = self.check_event_availability()
                     #reset everything if items returned
                     backoff = 0
@@ -190,6 +190,7 @@ class TwicketsClient:
                                 url = f"https://www.twickets.live/app/block/{id},1"
 
                                 #self.prowl.send_notification(f"Check {url}")
+                                logging.info(f"found tickets {url}")
                                 self.teleclient.send_notification("Ticket Alert", f"Check {url}")
                                 notified_ids.add(id)
                                 self.save_notified_ids(notified_ids)
