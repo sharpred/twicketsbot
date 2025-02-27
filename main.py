@@ -137,7 +137,7 @@ class TwicketsClient:
         url = f"/services/g2/inventory/listings/{self.event_id}?api_key={self.api_key}"
         if self.conn.sock is not None:
             try:
-                logging.debug(f"Get response event: {{self.event_id}}")
+                logging.debug(f"Get response event: {self.event_id}")
                 self.conn.request("GET", url, headers=self.headers)
                 response = self.conn.getresponse()
                 if response.status == 200:
