@@ -154,7 +154,18 @@ class TwicketsClient:
             except http.client.HTTPException:
                 self.conn.close()
         return []
-    
+
+    def process_ticket(self, id, notified_ids):
+        """ Process and notify about a ticket if it's not already notified """
+        if id not in notified_ids:
+            url = f"https://www.twickets.live/app/block/{id},1"
+            found_str = f"found tickets {url}"
+            self.prowl.send_notification(found_str)
+            logging.info(found_str)
+            self.teleclient.send_notification("Ticket Alert", found_str)
+            notified_ids.add(id)
+            self.save_notified_ids(notified_ids)
+
     def run(self):
         """ run da ting """
         try:
@@ -184,16 +195,15 @@ class TwicketsClient:
                     attempts = 0
                     count +=1
                     if items:
-                        for item in items:
-                            id = str(items['id']).split('@')[1]
-                            if id not in notified_ids:
-                                url = f"https://www.twickets.live/app/block/{id},1"
-
-                                #self.prowl.send_notification(f"Check {url}")
-                                logging.info(f"found tickets {url}")
-                                self.teleclient.send_notification("Ticket Alert", f"Check {url}")
-                                notified_ids.add(id)
-                                self.save_notified_ids(notified_ids)
+                        if isinstance(items, list):
+                            for item in items:
+                                id = str(items['id']).split('@')[1]
+                                self.process_ticket(id, notified_ids)
+                        elif isinstance(items, dict):
+                           id = str(items.get('id', '')).split('@')[1]  # Directly access if it's a dictionary 
+                           self.process_ticket(id, notified_ids)
+                        else:
+                            raise TypeError(f"Unexpected type for items: {type(items)} - {items}")
                     SLEEP_INTERVAL = time_delay + (backoff)
                     sleep(SLEEP_INTERVAL)
                 except NotTwoHundredStatusError as error_msg:
@@ -223,7 +233,7 @@ class TwicketsClient:
         except Exception as e:
             self.save_notified_ids(notified_ids)
             logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
-            error_msg = f"Cycle {count} Caught exception {e}"
+            error_msg = f"Cycle {count} Caught exception {e}\nitems received {items}"
             self.conn.close()
             self.prowl.send_notification(error_msg)
     
