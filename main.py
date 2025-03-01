@@ -199,7 +199,7 @@ class TwicketsClient:
                     if items:
                         if isinstance(items, list):
                             for item in items:
-                                id = str(items['id']).split('@')[1]
+                                id = str(item.get('id', '')).split('@')[1]
                                 self.process_ticket(id, notified_ids)
                         elif isinstance(items, dict):
                            id = str(items.get('id', '')).split('@')[1]  # Directly access if it's a dictionary 
