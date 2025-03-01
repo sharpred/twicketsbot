@@ -1,24 +1,24 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: twicketsbot
+  name: twicketsbotcamping
   namespace: test
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: twicketsbot
+      app: twicketsbotcamping
   template:
     metadata:
       labels:
-        app: twicketsbot
+        app: twicketsbotcamping
     spec:
       containers:
       - name: twicketsbot
         image: registry.sharpred.work/twicketsbot:2.3
         envFrom:
           - configMapRef:
-              name: twickets-bot-config
+              name: twickets-botcamping-config
           - secretRef:
               name: prowl-api-key
           - secretRef:

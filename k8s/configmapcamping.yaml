@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: twickets-bot-config
+  name: twickets-botcamping-config
   namespace: test
 data:
   TWICKETS_EVENT_ID: "1884917808408563712"
