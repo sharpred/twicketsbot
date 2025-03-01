@@ -235,7 +235,10 @@ class TwicketsClient:
         except Exception as e:
             self.save_notified_ids(notified_ids)
             logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
-            error_msg = f"Cycle {count} Caught exception {e}\nitems received {items}"
+            logging.error(f"Cycle {count} {e} ")
+            error_msg = f"Cycle {count} Caught exception {e}\nitems received\n{items}"
+            logging.error(f"{items} ")
+            logging.error(f"{type(items).__name__}")
             self.conn.close()
             self.prowl.send_notification(error_msg)
     
