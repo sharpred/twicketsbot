@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: twickets-bot-config
+  name: twickets-botmain-config
   namespace: test
 data:
-  TWICKETS_EVENT_ID: "1884917808408563712"
-  TWICKETS_EVENT_NAME: "GM Camping and Parking"
+  TWICKETS_EVENT_ID: "1884916606832742400"
+  TWICKETS_EVENT_NAME: "GM Main Event"
   TWICKETS_CLIENT_ID: "e0111c5e-ad13-4209-9c08-16e913b5baf5"

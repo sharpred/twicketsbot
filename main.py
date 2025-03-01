@@ -26,7 +26,8 @@ class TwicketsClient:
         "TWICKETS_PASSWORD",
         "TWICKETS_CLIENT_ID",  
         "TWICKETS_EVENT_ID", 
-        "PROWL_API_KEY"
+        "PROWL_API_KEY",
+        "TWICKETS_EVENT_NAME"
     ]
 
     MIN_TIME=15
@@ -39,6 +40,7 @@ class TwicketsClient:
         self.email = os.getenv("TWICKETS_EMAIL")
         self.password = os.getenv("TWICKETS_PASSWORD")
         self.event_id = os.getenv("TWICKETS_EVENT_ID")
+        self.event_name = os.getenv("TWICKETS_EVENT_NAME")
         
         self.token = None
         self.conn = http.client.HTTPSConnection(self.BASE_URL)
@@ -159,7 +161,7 @@ class TwicketsClient:
         """ Process and notify about a ticket if it's not already notified """
         if id not in notified_ids:
             url = f"https://www.twickets.live/app/block/{id},1"
-            found_str = f"found tickets {url}"
+            found_str = f"found {self.event_name} tickets {url}"
             self.prowl.send_notification(found_str)
             logging.info(found_str)
             self.teleclient.send_notification("Ticket Alert", found_str)
