@@ -167,6 +167,8 @@ class TwicketsClient:
             self.teleclient.send_notification("Ticket Alert", found_str)
             notified_ids.add(id)
             self.save_notified_ids(notified_ids)
+        else:
+            logging.debug(f"Ignoring repeat notification {id}")
 
     def run(self):
         """ run da ting """
@@ -199,7 +201,7 @@ class TwicketsClient:
                     if items:
                         if isinstance(items, list):
                             for item in items:
-                                id = str(items['id']).split('@')[1]
+                                id = str(item.get('id', '')).split('@')[1]
                                 self.process_ticket(id, notified_ids)
                         elif isinstance(items, dict):
                            id = str(items.get('id', '')).split('@')[1]  # Directly access if it's a dictionary 
