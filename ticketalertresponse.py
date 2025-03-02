@@ -4,10 +4,17 @@ from typing import Any, List, TypeVar, Callable, Type, cast
 
 T = TypeVar("T")
 
+def from_bool(x: Any) -> bool | None:
+    if isinstance(x, bool):
+        return x
+    if x is None:
+        return None  # Allow None values
+    if isinstance(x, str):
+        return x.lower() == "true"  # Convert string "true"/"false" to bool
+    if isinstance(x, int):
+        return bool(x)  # Convert 0/1 to False/True
+    raise ValueError(f"Cannot convert {x} to boolean")
 
-def from_none(x: Any) -> Any:
-    assert x is None
-    return x
 
 
 def from_str(x: Any) -> str:
@@ -30,14 +37,9 @@ def to_class(c: Type[T], x: Any) -> dict:
     return cast(Any, x).to_dict()
 
 
-def from_bool(x: Any) -> bool:
-    assert isinstance(x, bool)
-    return x
-
-
 @dataclass
 class Price:
-    id: None
+    id: str | None  # Allow id to be either a string or None
     currency_code: str
     label: str
     face_value: int
@@ -48,7 +50,7 @@ class Price:
     @staticmethod
     def from_dict(obj: Any) -> 'Price':
         assert isinstance(obj, dict)
-        id = from_none(obj.get("id"))
+        id = obj.get("id")  # Accept whatever is in JSON
         currency_code = from_str(obj.get("currencyCode"))
         label = from_str(obj.get("label"))
         face_value = from_int(obj.get("faceValue"))
@@ -59,7 +61,7 @@ class Price:
 
     def to_dict(self) -> dict:
         result: dict = {}
-        result["id"] = from_none(self.id)
+        result["id"] = self.id  # Just store the value without forcing None
         result["currencyCode"] = from_str(self.currency_code)
         result["label"] = from_str(self.label)
         result["faceValue"] = from_int(self.face_value)
