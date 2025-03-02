@@ -81,6 +81,17 @@ class Pricing:
         """Returns the total number of tickets in the pricing list."""
         return len(self.prices)
 
+    @property
+    def required_single_ticket(self) -> bool:
+        """
+        Checks if the first ticket has a label of 'Adult Weekend Ticket' or 
+        'Weekend Campervan Pass' and if there is exactly one ticket.
+        """
+        if self.number_of_tickets == 1 and self.prices:
+            first_label = self.prices[0].label
+            return first_label in {"Adult Weekend Ticket", "Weekend Campervan Pass"}
+        return False
+
     @staticmethod
     def from_dict(obj: Any) -> 'Pricing':
         assert isinstance(obj, dict)
@@ -115,6 +126,10 @@ class ResponseDatum:
         """Returns True if only a single ticket is available, otherwise False."""
         return self.pricing.number_of_tickets == 1
 
+    @property
+    def is_required_ticket(self) -> bool:
+        """Returns True if this is a single ticket and has a special label."""
+        return self.pricing.required_single_ticket
 
     @staticmethod
     def from_dict(obj: Any) -> 'ResponseDatum':

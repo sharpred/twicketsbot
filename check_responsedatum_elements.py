@@ -27,6 +27,7 @@ def test_response_datum_file(filename: str):
     for item in response_data:
         print(f"ID: {item.id}, URL ID: {item.url_id}")
         print(f"Single ticket {item.single_ticket}")
+        print(f"Required ticket {item.is_required_ticket}")
 
 if __name__ == "__main__":
     test_response_datum_file("main_event.json")
