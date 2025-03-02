@@ -12,6 +12,7 @@ import json
 import sys
 from helpers import NotTwoHundredStatusError, ProwlNoticationsClient
 from telegram import TelegramBotClient
+from ticketalertresponse import TicketAlertResponse
 
 #logging.captureWarnings(True)
 logging.basicConfig(level=logging.WARNING)
@@ -83,7 +84,7 @@ class TwicketsClient:
                 logging.debug("Connection successful")
                 return
             except socket.gaierror as ge:
-                logging.warning(f"DNS resolution failed: {ge}. Retrying in {BASE_DELAY * (2 ** retries)}s...")
+                logging.warning(f"DNS resolution failed: {ge}. Retrying in {self.BASE_DELAY * (2 ** retries)}s...")
             except (http.client.HTTPException, OSError):
                 logging.warning("Connection error")
                 #TODO wrap self.conn.close in method
@@ -91,7 +92,7 @@ class TwicketsClient:
                 self.conn = http.client.HTTPSConnection(self.BASE_URL)
                 self.conn.connect()
             retries += 1
-            time.sleep(BASE_DELAY * (2 ** retries))
+            time.sleep(self.BASE_DELAY * (2 ** retries))
         logging.error("Max retries reached. Could not establish a connection.")
 
     def check_env_variables(self):
@@ -132,7 +133,7 @@ class TwicketsClient:
         logging.warning(f"Authentication error status {response.status}")
         return None
 
-    def check_event_availability(self):
+    def check_event_availability(self) -> TicketAlertResponse:
         """ Check ticket availability """
         logging.debug("Connection socket is none: %s",(self.conn.sock is None))
         self._ensure_connection()
@@ -148,7 +149,8 @@ class TwicketsClient:
                     clock_val = result.get("clock")
                     items = result.get("responseData")
                     logging.info("Response code %s, clock %s, tickets %s",code, clock_val, len(items))
-                    return items
+                    # Convert the response into a TicketAlertResponse object
+                    return TicketAlertResponse.from_dict(result)
                 raise NotTwoHundredStatusError(f"Check availability status: {response.status}")
             except http.client.ResponseNotReady:
                 logging.warning("http.client.ResponseNotReady exception")
@@ -157,18 +159,22 @@ class TwicketsClient:
                 self.conn.close()
         return []
 
-    def process_ticket(self, id, notified_ids):
-        """ Process and notify about a ticket if it's not already notified """
-        if id not in notified_ids:
-            url = f"https://www.twickets.live/app/block/{id},1"
-            found_str = f"found {self.event_name} tickets {url}"
-            self.prowl.send_notification(found_str)
-            logging.info(found_str)
-            self.teleclient.send_notification("Ticket Alert", found_str)
-            notified_ids.add(id)
-            self.save_notified_ids(notified_ids)
-        else:
-            logging.debug(f"Ignoring repeat notification {id}")
+    def process_ticket_alert(self, ticket_alert_response: TicketAlertResponse, notified_ids):
+        """Process and notify about tickets from a TicketAlertResponse."""
+        for response_datum in ticket_alert_response.response_data:
+            id = response_datum.url_id  # Extract url_id directly
+        
+            if id not in notified_ids:
+                url = f"https://{self.BASE_URL}/app/block/{id},1"
+                found_str = f"found {self.event_name} tickets {url}"
+                self.prowl.send_notification(found_str)
+                logging.info(found_str)
+                self.teleclient.send_notification("Ticket Alert", found_str)
+                notified_ids.add(id)
+                self.save_notified_ids(notified_ids)
+            else:
+                logging.debug(f"Ignoring repeat notification {id}")
+
 
     def run(self):
         """ run da ting """
@@ -193,21 +199,15 @@ class TwicketsClient:
                 
                 try:
                     logging.debug("Check cycle %s at %s with %s seconds delay",count,now.strftime("%d/%m %H:%M:%S"),time_delay)
-                    items = self.check_event_availability()
+                    ticket_alert = self.check_event_availability()
                     #reset everything if items returned
                     backoff = 0
                     attempts = 0
                     count +=1
-                    if items:
-                        if isinstance(items, list):
-                            for item in items:
-                                id = str(item.get('id', '')).split('@')[1]
-                                self.process_ticket(id, notified_ids)
-                        elif isinstance(items, dict):
-                           id = str(items.get('id', '')).split('@')[1]  # Directly access if it's a dictionary 
-                           self.process_ticket(id, notified_ids)
-                        else:
-                            raise TypeError(f"Unexpected type for items: {type(items)} - {items}")
+                    if isinstance(ticket_alert, TicketAlertResponse):
+                        self.process_ticket_alert(ticket_alert, notified_ids)
+                    else:
+                        raise TypeError(f"Unexpected type for items: {type(items)} - {items}")
                     SLEEP_INTERVAL = time_delay + (backoff)
                     sleep(SLEEP_INTERVAL)
                 except NotTwoHundredStatusError as error_msg:
