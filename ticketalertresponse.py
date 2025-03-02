@@ -176,6 +176,11 @@ class TicketAlertResponse:
     description: str
     clock: str
 
+    @property
+    def has_valid_tickets(self) -> bool:
+        """Returns True if at least one ResponseDatum has is_required_ticket == True."""
+        return any(item.is_required_ticket for item in self.response_data)
+
     @staticmethod
     def from_dict(obj: Any) -> 'TicketAlertResponse':
         assert isinstance(obj, dict)

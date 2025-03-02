@@ -145,12 +145,10 @@ class TwicketsClient:
                 response = self.conn.getresponse()
                 if response.status == 200:
                     result = json.loads(response.read().decode())
-                    code = result.get("responseCode")
-                    clock_val = result.get("clock")
-                    items = result.get("responseData")
-                    logging.info("Response code %s, clock %s, tickets %s",code, clock_val, len(items))
                     # Convert the response into a TicketAlertResponse object
-                    return TicketAlertResponse.from_dict(result)
+                    ticket_alert_response = TicketAlertResponse.from_dict(result)
+                    logging.info(f"Response code {ticket_alert_response.code}, clock {ticket_alert_response.clock}, has valid tickets {ticket_alert_response.has_valid_tickets}")
+                    return ticket_alert_response
                 raise NotTwoHundredStatusError(f"Check availability status: {response.status}")
             except http.client.ResponseNotReady:
                 logging.warning("http.client.ResponseNotReady exception")
@@ -200,19 +198,19 @@ class TwicketsClient:
                 try:
                     logging.debug("Check cycle %s at %s with %s seconds delay",count,now.strftime("%d/%m %H:%M:%S"),time_delay)
                     ticket_alert = self.check_event_availability()
-                    #reset everything if items returned
+                    #reset everything if ticket alert returned
                     backoff = 0
                     attempts = 0
                     count +=1
                     if isinstance(ticket_alert, TicketAlertResponse):
                         self.process_ticket_alert(ticket_alert, notified_ids)
                     else:
-                        raise TypeError(f"Unexpected type for items: {type(items)} - {items}")
+                        raise TypeError(f"Unexpected type for ticket alert: {type(ticket_alert)} ")
                     SLEEP_INTERVAL = time_delay + (backoff)
                     sleep(SLEEP_INTERVAL)
                 except NotTwoHundredStatusError as error_msg:
                     logging.info(f"{error_msg} %s. Attempt {attempts}",now.strftime("%H:%M:%S"))
-                    items = None
+                    ticket_alert = None
                     if attempts > self.MAX_RETRIES:
                         #give up
                         self.save_notified_ids(notified_ids)
@@ -238,9 +236,8 @@ class TwicketsClient:
             self.save_notified_ids(notified_ids)
             logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
             logging.error(f"Cycle {count} {e} ")
-            error_msg = f"Cycle {count} Caught exception {e}\nitems received\n{items}"
-            logging.error(f"{items} ")
-            logging.error(f"{type(items).__name__}")
+            error_msg = f"Cycle {count} Caught exception {e}"
+            logging.error(f"{type(ticket_alert).__name__}")
             self.conn.close()
             self.prowl.send_notification(error_msg)
     
