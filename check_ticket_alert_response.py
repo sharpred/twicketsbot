@@ -22,6 +22,8 @@ def process_file(filename: str):
     print("\nChecking url_id values:")
     for item in response.response_data:
         print(f"ID: {item.id} -> URL ID: {item.url_id}")
+        print(f"Single ticket {item.single_ticket}")
+        print(f"Required ticket {item.is_required_ticket}")
 
     # Convert object back to dictionary and write to output file
     with open(output_path, "w", encoding="utf-8") as f:
