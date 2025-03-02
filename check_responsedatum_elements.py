@@ -26,6 +26,7 @@ def test_response_datum_file(filename: str):
     # Check url_id for each ResponseDatum
     for item in response_data:
         print(f"ID: {item.id}, URL ID: {item.url_id}")
+        print(f"Single ticket {item.single_ticket}")
 
 if __name__ == "__main__":
     test_response_datum_file("main_event.json")

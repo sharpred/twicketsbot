@@ -76,6 +76,11 @@ class Pricing:
     options: str
     prices: List[Price]
 
+    @property
+    def number_of_tickets(self) -> int:
+        """Returns the total number of tickets in the pricing list."""
+        return len(self.prices)
+
     @staticmethod
     def from_dict(obj: Any) -> 'Pricing':
         assert isinstance(obj, dict)
@@ -104,6 +109,12 @@ class ResponseDatum:
     delivery_method_types: List[str]
     seller_will_consider_offers: bool
     segment_id: str
+
+    @property
+    def single_ticket(self) -> bool:
+        """Returns True if only a single ticket is available, otherwise False."""
+        return self.pricing.number_of_tickets == 1
+
 
     @staticmethod
     def from_dict(obj: Any) -> 'ResponseDatum':
