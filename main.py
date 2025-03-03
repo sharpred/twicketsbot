@@ -238,6 +238,12 @@ class TwicketsClient:
                         exit_error_message = "Exiting after five failed login attempts"
                         self.prowl.send_notification(exit_error_message)
                         logging.error(exit_error_message)
+                        self.conn.close()
+                        #If running as a k8s deployment the pod will just respawn on exit and you will still be in a 403 shutout timeframe, so sleep before exit
+                        SLEEP_INTERVAL = auth_time_delay * (2 ** attempts)
+                        new_time = now + timedelta(seconds=SLEEP_INTERVAL)
+                        logging.error("Exiting due to repeated 403 errors at %s", new_time.strftime("%H:%M:%S"))
+                        sleep(SLEEP_INTERVAL)
                         sys.exit(exit_error_message)
                     SLEEP_INTERVAL = auth_time_delay * (2 ** attempts)
                     new_time = now + timedelta(seconds=SLEEP_INTERVAL)
