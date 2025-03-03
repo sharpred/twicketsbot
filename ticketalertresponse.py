@@ -144,7 +144,7 @@ class ResponseDatum:
         individual_attributes = from_list(lambda x: from_list(from_int, x), obj.get("individualAttributes"))
         splits = from_list(from_int, obj.get("splits"))
         delivery_method_types = from_list(from_str, obj.get("deliveryMethodTypes"))
-        seller_will_consider_offers = from_bool(obj.get("sellerWillConsiderOffers"))
+        seller_will_consider_offers = from_bool(obj.get("sellerWillConsiderOffers")) or False
         segment_id = from_str(obj.get("segmentId"))
         return ResponseDatum(type, area, section, row, id, pricing, common_attributes, individual_attributes, splits, delivery_method_types, seller_will_consider_offers, segment_id)
 

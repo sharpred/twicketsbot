@@ -33,7 +33,7 @@ class ProwlNoticationsClient:
         response = requests.post(prowl_url, data=data, timeout=10)
         response.raise_for_status()
 
-def compare_json_files(path1: str, path2: str) -> bool:
+def compare_json_files(path1: str, path2: str):
     """Compares two JSON files and returns True if they match, otherwise False."""
     print("Comparing files")
     file1, file2 = Path(path1), Path(path2)

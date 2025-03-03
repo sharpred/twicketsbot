@@ -10,6 +10,7 @@ import time
 import random
 import json
 import sys
+from typing import Optional
 from helpers import NotTwoHundredStatusError, ProwlNoticationsClient
 from telegram import TelegramBotClient
 from ticketalertresponse import TicketAlertResponse
@@ -133,29 +134,33 @@ class TwicketsClient:
         logging.warning(f"Authentication error status {response.status}")
         return None
 
-    def check_event_availability(self) -> TicketAlertResponse:
+    def check_event_availability(self) -> Optional[TicketAlertResponse]:
         """ Check ticket availability """
         logging.debug("Connection socket is none: %s",(self.conn.sock is None))
         self._ensure_connection()
         url = f"/services/g2/inventory/listings/{self.event_id}?api_key={self.api_key}"
-        if self.conn.sock is not None:
-            try:
-                logging.debug(f"Get response event: {self.event_id}")
-                self.conn.request("GET", url, headers=self.headers)
-                response = self.conn.getresponse()
-                if response.status == 200:
-                    result = json.loads(response.read().decode())
-                    # Convert the response into a TicketAlertResponse object
-                    ticket_alert_response = TicketAlertResponse.from_dict(result)
-                    logging.info(f"Response code {ticket_alert_response.response_code}, clock {ticket_alert_response.clock}, has valid tickets {ticket_alert_response.has_valid_tickets}")
-                    return ticket_alert_response
-                raise NotTwoHundredStatusError(f"Check availability status: {response.status}")
-            except http.client.ResponseNotReady:
-                logging.warning("http.client.ResponseNotReady exception")
-                pass
-            except http.client.HTTPException:
-                self.conn.close()
-        return []
+        if self.conn.sock is None:
+            # No valid connection, so we return None.
+            return None
+        try:
+            logging.debug(f"Get response event: {self.event_id}")
+            self.conn.request("GET", url, headers=self.headers)
+            response = self.conn.getresponse()
+            if response.status == 200:
+                result = json.loads(response.read().decode())
+                # Convert the response into a TicketAlertResponse object
+                ticket_alert_response = TicketAlertResponse.from_dict(result)
+                logging.info(f"Response code {ticket_alert_response.response_code}, clock {ticket_alert_response.clock}, has valid tickets {ticket_alert_response.has_valid_tickets}")
+                return ticket_alert_response
+            raise NotTwoHundredStatusError(f"Check availability status: {response.status}")
+        except http.client.ResponseNotReady:
+            logging.warning("http.client.ResponseNotReady exception")
+            pass
+            return None
+        except http.client.HTTPException as e:
+            self.conn.close()
+            raise e
+        
 
     def process_ticket_alert(self, ticket_alert_response: TicketAlertResponse, notified_ids):
         """Process and notify about tickets from a TicketAlertResponse."""
@@ -236,9 +241,9 @@ class TwicketsClient:
             self.save_notified_ids(notified_ids)
             logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
             logging.error(f"Cycle {count} {e} ")
-            error_msg = f"Cycle {count} Caught exception {e}"
+            exception_error_msg = f"Cycle {count} Caught exception {e}"
             self.conn.close()
-            self.prowl.send_notification(error_msg)
+            self.prowl.send_notification(exception_error_msg)
     
 
 if __name__ == "__main__":
