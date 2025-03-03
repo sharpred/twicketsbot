@@ -219,11 +219,12 @@ class TwicketsClient:
                     count +=1
                     new_notification_sent = False
                     if isinstance(ticket_alert, TicketAlertResponse):
-                        new_notification_sent = self.process_ticket_alert(ticket_alert, notified_ids)
-                        #might as well wait a bit longer if there is an active alert
-                        if new_notification_sent == True:
-                            SLEEP_INTERVAL = auth_time_delay
-                            logging.info(f"Pausing for {SLEEP_INTERVAL} as notification sent")
+                        if ticket_alert.has_valid_tickets == True:
+                            new_notification_sent = self.process_ticket_alert(ticket_alert, notified_ids)
+                            #might as well wait a bit longer if there is an active alert
+                            if new_notification_sent == True:
+                                SLEEP_INTERVAL = auth_time_delay
+                                logging.info(f"Pausing for {SLEEP_INTERVAL} as notification sent")
                     else:
                         raise TypeError(f"Unexpected type for ticket alert: {type(ticket_alert)} ")
                     SLEEP_INTERVAL = time_delay + (backoff)

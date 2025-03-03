@@ -18,8 +18,10 @@ def from_bool(x: Any) -> bool | None:
 
 
 def from_str(x: Any) -> str:
-    assert isinstance(x, str)
-    return x
+    if isinstance(x, str):
+        return x
+    if x is None:
+        return ''
 
 
 def from_int(x: Any) -> int:
