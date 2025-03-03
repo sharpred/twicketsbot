@@ -14,3 +14,4 @@ check_ticket_alert_response.py
 extract_version.py
 git_commit_and_tag.py
 set_deployment_version.py
+docker_build_and_push.py
