@@ -27,6 +27,7 @@ def commit_and_tag(commit_message):
         run_git_command(["git", "add", "--all"])
         run_git_command(["git", "commit", "-m", commit_message])
         run_git_command(["git", "tag", version])
+        run_git_command(["git", "push", "--tags"])
 
         print(f"Successfully committed and tagged version: {version}")
 
