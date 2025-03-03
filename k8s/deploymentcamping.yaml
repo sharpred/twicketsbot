@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: twicketsbot
-        image: registry.sharpred.work/twicketsbot:2.8
+        image: registry.sharpred.work/twicketsbot:2.9
         envFrom:
         - configMapRef:
             name: twickets-botcamping-config
