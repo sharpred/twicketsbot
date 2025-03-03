@@ -162,8 +162,10 @@ class TwicketsClient:
             raise e
         
 
-    def process_ticket_alert(self, ticket_alert_response: TicketAlertResponse, notified_ids):
+    def process_ticket_alert(self, ticket_alert_response: TicketAlertResponse, notified_ids) -> bool:
         """Process and notify about tickets from a TicketAlertResponse."""
+        new_notification_sent = False  # Track if any new notification is sent
+
         for response_datum in ticket_alert_response.response_data:
             id = response_datum.url_id  # Extract url_id directly
         
@@ -175,8 +177,11 @@ class TwicketsClient:
                 self.teleclient.send_notification("Ticket Alert", found_str)
                 notified_ids.add(id)
                 self.save_notified_ids(notified_ids)
+                new_notification_sent = True  # Set to True since a new notification was sent
             else:
                 logging.debug(f"Ignoring repeat notification {id}")
+
+        return new_notification_sent
 
 
     def run(self):
@@ -207,8 +212,12 @@ class TwicketsClient:
                     backoff = 0
                     attempts = 0
                     count +=1
+                    new_notification_sent = False
                     if isinstance(ticket_alert, TicketAlertResponse):
-                        self.process_ticket_alert(ticket_alert, notified_ids)
+                        new_notification_sent = self.process_ticket_alert(ticket_alert, notified_ids)
+                        #might as well wait a bit longer if there is an active alert
+                        SLEEP_INTERVAL = auth_time_delay
+                        logging.info(f"Pausing for {SLEEP_INTERVAL} as notification sent")
                     else:
                         raise TypeError(f"Unexpected type for ticket alert: {type(ticket_alert)} ")
                     SLEEP_INTERVAL = time_delay + (backoff)
