@@ -9,3 +9,8 @@ scratch/
 .pylintrc
 deploy.sh
 README.ipynbs
+check_responsedatum_elements.py
+check_ticket_alert_response.py
+extract_version.py
+git_commit_and_tag.py
+set_deployment_version.py
