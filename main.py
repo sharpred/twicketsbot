@@ -147,7 +147,7 @@ class TwicketsClient:
                     result = json.loads(response.read().decode())
                     # Convert the response into a TicketAlertResponse object
                     ticket_alert_response = TicketAlertResponse.from_dict(result)
-                    logging.info(f"Response code {ticket_alert_response.code}, clock {ticket_alert_response.clock}, has valid tickets {ticket_alert_response.has_valid_tickets}")
+                    logging.info(f"Response code {ticket_alert_response.response_code}, clock {ticket_alert_response.clock}, has valid tickets {ticket_alert_response.has_valid_tickets}")
                     return ticket_alert_response
                 raise NotTwoHundredStatusError(f"Check availability status: {response.status}")
             except http.client.ResponseNotReady:
@@ -237,7 +237,6 @@ class TwicketsClient:
             logging.error("Cycle %s Caught exception of type %s",count, type(e).__name__)
             logging.error(f"Cycle {count} {e} ")
             error_msg = f"Cycle {count} Caught exception {e}"
-            logging.error(f"{type(ticket_alert).__name__}")
             self.conn.close()
             self.prowl.send_notification(error_msg)
     
