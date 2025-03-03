@@ -167,19 +167,23 @@ class TwicketsClient:
         new_notification_sent = False  # Track if any new notification is sent
 
         for response_datum in ticket_alert_response.response_data:
-            id = response_datum.url_id  # Extract url_id directly
+            if response_datum.is_required_ticket == True:
+
+                id = response_datum.url_id  # Extract url_id directly
         
-            if id not in notified_ids:
-                url = f"https://{self.BASE_URL}/app/block/{id},1"
-                found_str = f"found {self.event_name} tickets {url}"
-                self.prowl.send_notification(found_str)
-                logging.info(found_str)
-                self.teleclient.send_notification("Ticket Alert", found_str)
-                notified_ids.add(id)
-                self.save_notified_ids(notified_ids)
-                new_notification_sent = True  # Set to True since a new notification was sent
+                if id not in notified_ids:
+                    url = f"https://{self.BASE_URL}/app/block/{id},1"
+                    found_str = f"found {self.event_name} tickets {url}"
+                    self.prowl.send_notification(found_str)
+                    logging.info(found_str)
+                    self.teleclient.send_notification("Ticket Alert", found_str)
+                    notified_ids.add(id)
+                    self.save_notified_ids(notified_ids)
+                    new_notification_sent = True  # Set to True since a new notification was sent
+                else:
+                    logging.debug(f"Ignoring repeat notification {id}")
             else:
-                logging.debug(f"Ignoring repeat notification {id}")
+                logging.info(f"Ignoring listing for {response_datum.pricing.prices[0].label}")
 
         return new_notification_sent
 
@@ -187,6 +191,7 @@ class TwicketsClient:
     def run(self):
         """ run da ting """
         try:
+            logging.debug(f"Checking {self.event_name} availability")
             logging.debug("Checking env variables")
             count = 1
             notified_ids = self.load_notified_ids()

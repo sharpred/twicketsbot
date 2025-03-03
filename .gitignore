@@ -188,3 +188,5 @@ scratchpadnotes.txt
 scratch/*
 secrets/*
 notified_ids.json
+launch.json
+.vscode/*

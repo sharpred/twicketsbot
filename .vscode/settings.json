@@ -1,5 +1,0 @@
-{
-    "javascript.suggest.includeAutomaticOptionalChainCompletions": true,
-    "python.analysis.typeCheckingMode": "strict"
-
-}
