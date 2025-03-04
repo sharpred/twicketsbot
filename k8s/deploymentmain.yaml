@@ -24,9 +24,9 @@ spec:
         - secretRef:
             name: twickets-api-key-secret
         - secretRef:
-            name: twickets-email
+            name: twickets-email-alt
         - secretRef:
-            name: twickets-password
+            name: twickets-password-alt
         - secretRef:
             name: telegram-keys
       imagePullSecrets:

@@ -13,15 +13,15 @@ spec:
     name: busybox
     envFrom:
       - configMapRef:
-          name: twickets-bot-config
+          name: twickets-botmain-config
       - secretRef:
           name: prowl-api-key
       - secretRef:
           name: twickets-api-key-secret
       - secretRef:
-          name: twickets-email
+          name: twickets-email-alt
       - secretRef:
-          name: twickets-password
+          name: twickets-password-alt
       - secretRef:
           name: telegram-keys
 
