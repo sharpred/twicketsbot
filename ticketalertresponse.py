@@ -20,8 +20,7 @@ def from_bool(x: Any) -> bool | None:
 def from_str(x: Any) -> str:
     if isinstance(x, str):
         return x
-    if x is None:
-        return ''
+    return ''
 
 
 def from_int(x: Any) -> int:

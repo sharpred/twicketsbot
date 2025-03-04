@@ -203,7 +203,7 @@ class TwicketsClient:
             START_MESSAGE = "starting ticket check"
             logging.debug(START_MESSAGE)  
             attempts = 0
-            
+            blocked_requests = 0
             while True:
                 now = datetime.now()
                 tomorrow = now + timedelta(days=1)
@@ -230,6 +230,8 @@ class TwicketsClient:
                     SLEEP_INTERVAL = time_delay + (backoff)
                     sleep(SLEEP_INTERVAL)
                 except NotTwoHundredStatusError as error_msg:
+                    blocked_requests += 1
+                    logging.info("Check cycle %s, blocked requests: %s",count,blocked_requests)
                     logging.info(f"{error_msg} %s. Attempt {attempts}",now.strftime("%H:%M:%S"))
                     ticket_alert = None
                     if attempts > self.MAX_RETRIES:
